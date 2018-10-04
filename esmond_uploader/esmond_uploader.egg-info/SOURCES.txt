@@ -1,0 +1,7 @@
+setup.py
+esmond_uploader.egg-info/PKG-INFO
+esmond_uploader.egg-info/SOURCES.txt
+esmond_uploader.egg-info/dependency_links.txt
+esmond_uploader.egg-info/entry_points.txt
+esmond_uploader.egg-info/requires.txt
+esmond_uploader.egg-info/top_level.txt
