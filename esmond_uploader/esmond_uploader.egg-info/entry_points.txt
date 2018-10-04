@@ -1,3 +1,0 @@
-[console_scripts]
-esmond_uploader = app:main
-
