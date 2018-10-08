@@ -15,8 +15,8 @@ Config -
 				Mesh: http://iu-mca01.osris.org/pub/config/slate-mesh
 INFO:root:Starting jobs
 Starting jobs
-INFO:root:THREAD OK | 2018-10-04 15:11:34
-THREAD OK | 2018-10-04 15:11:34
+INFO:root:THREAD OK | 2018-10-08 14:22:30
+THREAD OK | 2018-10-08 14:22:30
 INFO:root:LOG: throughput test thread - updating every 120 seconds.
  Src: 192.168.10.202, Dst: 192.168.10.204
 LOG: throughput test thread - updating every 120 seconds.
@@ -25,12 +25,8 @@ INFO:root:Begin fetching throughput test data within time range 3600
 Begin fetching throughput test data within time range 3600
 INFO:root:pulling test entries from Esmond
 pulling test entries from Esmond
-INFO:root:Setting working test archive to latest updated test
-Setting working test archive to latest updated test
-INFO:root:Uploading to UNIS: throughput test data for 192.168.10.202 -> 192.168.10.204
-Uploading to UNIS: throughput test data for 192.168.10.202 -> 192.168.10.204
-INFO:root:THREAD OK | 2018-10-04 15:11:35
-THREAD OK | 2018-10-04 15:11:35
+INFO:root:THREAD OK | 2018-10-08 14:22:30
+THREAD OK | 2018-10-08 14:22:30
 INFO:root:LOG: latency test thread - updating every 120 seconds.
  Src: 192.168.10.202, Dst: 192.168.10.204
 LOG: latency test thread - updating every 120 seconds.
@@ -41,70 +37,41 @@ INFO:root:pulling test entries from Esmond
 pulling test entries from Esmond
 INFO:root:Setting working test archive to latest updated test
 Setting working test archive to latest updated test
-INFO:root:Uploading to UNIS: histogram-owdelay test data for 192.168.10.202 -> 192.168.10.204
-Uploading to UNIS: histogram-owdelay test data for 192.168.10.202 -> 192.168.10.204
-INFO:root:Could not find metadata for - http://localhost:8888/links/9e4031da-7370-4d10-a433-952ade23830c
-Could not find metadata for - http://localhost:8888/links/9e4031da-7370-4d10-a433-952ade23830c
-INFO:root:Creating metadata obj - http://localhost:8888/metadata/a9426c6e-a1d8-4bef-bbf3-1dd00b51c29f 
-Creating metadata obj - http://localhost:8888/metadata/a9426c6e-a1d8-4bef-bbf3-1dd00b51c29f 
-INFO:__lace__:Tearing down connection to UNIS...
-Tearing down connection to UNIS...
-INFO:__lace__:Teardown complete.
-Teardown complete.
-INFO:__lace__:Tearing down connection to UNIS...
-Tearing down connection to UNIS...
-INFO:__lace__:Teardown complete.
-Teardown complete.
-INFO:root:Log Initialized.
-INFO:__lace__:Starting Unis network Runtime Environment...
-Starting Unis network Runtime Environment...
-INFO:root:********** Esmond Uploader Utility **********
-********** Esmond Uploader Utility **********
-INFO:root:MAIN THREAD 
-Config - 
-				Archive Host:http://iu-ps01.osris.org
-				Unis: http://localhost:8888
-				Mesh: http://iu-mca01.osris.org/pub/config/slate-mesh
-MAIN THREAD 
-Config - 
-				Archive Host:http://iu-ps01.osris.org
-				Unis: http://localhost:8888
-				Mesh: http://iu-mca01.osris.org/pub/config/slate-mesh
-INFO:root:Starting jobs
-Starting jobs
-INFO:root:THREAD OK | 2018-10-04 15:11:53
-THREAD OK | 2018-10-04 15:11:53
-INFO:root:LOG: throughput test thread - updating every 120 seconds.
- Src: 192.168.10.202, Dst: 192.168.10.204
-LOG: throughput test thread - updating every 120 seconds.
- Src: 192.168.10.202, Dst: 192.168.10.204
-INFO:root:Begin fetching throughput test data within time range 3600
-Begin fetching throughput test data within time range 3600
-INFO:root:pulling test entries from Esmond
-pulling test entries from Esmond
 INFO:root:Setting working test archive to latest updated test
 Setting working test archive to latest updated test
 INFO:root:Uploading to UNIS: throughput test data for 192.168.10.202 -> 192.168.10.204
 Uploading to UNIS: throughput test data for 192.168.10.202 -> 192.168.10.204
-INFO:root:THREAD OK | 2018-10-04 15:11:53
-THREAD OK | 2018-10-04 15:11:53
-INFO:root:LOG: latency test thread - updating every 120 seconds.
- Src: 192.168.10.202, Dst: 192.168.10.204
-LOG: latency test thread - updating every 120 seconds.
- Src: 192.168.10.202, Dst: 192.168.10.204
+INFO:root:Uploading to UNIS: histogram-owdelay test data for 192.168.10.202 -> 192.168.10.204
+Uploading to UNIS: histogram-owdelay test data for 192.168.10.202 -> 192.168.10.204
+INFO:root:Begin fetching throughput test data within time range 3600
+Begin fetching throughput test data within time range 3600
+INFO:root:pulling test entries from Esmond
+pulling test entries from Esmond
 INFO:root:Begin fetching histogram-owdelay test data within time range 3600
 Begin fetching histogram-owdelay test data within time range 3600
 INFO:root:pulling test entries from Esmond
 pulling test entries from Esmond
 INFO:root:Setting working test archive to latest updated test
 Setting working test archive to latest updated test
+INFO:root:Setting working test archive to latest updated test
+Setting working test archive to latest updated test
+INFO:root:Uploading to UNIS: throughput test data for 192.168.10.202 -> 192.168.10.204
+Uploading to UNIS: throughput test data for 192.168.10.202 -> 192.168.10.204
 INFO:root:Uploading to UNIS: histogram-owdelay test data for 192.168.10.202 -> 192.168.10.204
 Uploading to UNIS: histogram-owdelay test data for 192.168.10.202 -> 192.168.10.204
-INFO:__lace__:Tearing down connection to UNIS...
-Tearing down connection to UNIS...
-INFO:__lace__:Teardown complete.
-Teardown complete.
-INFO:__lace__:Tearing down connection to UNIS...
-Tearing down connection to UNIS...
-INFO:__lace__:Teardown complete.
-Teardown complete.
+INFO:root:Begin fetching throughput test data within time range 3600
+Begin fetching throughput test data within time range 3600
+INFO:root:pulling test entries from Esmond
+pulling test entries from Esmond
+INFO:root:Begin fetching histogram-owdelay test data within time range 3600
+Begin fetching histogram-owdelay test data within time range 3600
+INFO:root:pulling test entries from Esmond
+pulling test entries from Esmond
+INFO:root:Setting working test archive to latest updated test
+Setting working test archive to latest updated test
+INFO:root:Setting working test archive to latest updated test
+Setting working test archive to latest updated test
+INFO:root:Uploading to UNIS: throughput test data for 192.168.10.202 -> 192.168.10.204
+Uploading to UNIS: throughput test data for 192.168.10.202 -> 192.168.10.204
+INFO:root:Uploading to UNIS: histogram-owdelay test data for 192.168.10.202 -> 192.168.10.204
+Uploading to UNIS: histogram-owdelay test data for 192.168.10.202 -> 192.168.10.204

@@ -18,40 +18,50 @@ class UnisUtil:
         nodes. This is will likely need to be revisited later.
     '''
     def get_links(self, src_ip, dst_ip):
+        
         try:
             src_node = next(self.rt.nodes.where(lambda n: n.properties.mgmtaddr == src_ip))
             dst_node = next(self.rt.nodes.where(lambda n: n.properties.mgmtaddr == dst_ip))
         except:
-            print("Could not find nodes. get_links(",src_ip,",",dst_ip,")")
+            print("Could not find nodes. get_links( "  + src_ip + ", " + dst_ip + ")")
             return None, None
 
         edges = []
         for e in self.rt.graph.edges:
             valid = any(n in e for n in [src_node,dst_node])
             if valid:
-                edges.append(e) 
+                edges.append(e)
+            
+        print("getting links")         
+        switch_names = []
+        for e in edges:
+            if("switch" in e[0].name and (e[0].name not in switch_names)):
+                switch_names.append(e[0].name)
+        print("sw names", switch_names)
+        try:
+            sw0 = next(self.rt.nodes.where(lambda n: n.name == switch_names[0]))
+            sw1 = next(self.rt.nodes.where(lambda n: n.name == switch_names[1]))
+            print(sw0.name, sw1.name)
+            for e in self.rt.graph.edges:
+                if e[0].name == sw0.name and e[1].name == sw1.name:
+                    edges.append(e)
+                    print(e[0].name, e[1].name)
+                    return [e[2]]
+                    break
+                elif e[1].name == sw0.name and e[0].name == sw1.name:
+                    
+                    print(e[0].name, e[1].name)
+                    edges.append(e)
+                    return [e[2]]
+                    break
+        except:
+            print("Could not find intermediate link")
+            return [edges[0][2], edges[1][2]]
         
-        # Get the switch link, huge assumption, needs revisiting later after techX
-        if len(edges) == 2:
-            try:
-                sw0 = next(self.rt.nodes.where(lambda n: n.name == edges[0][1].name))
-                sw1 = next(self.rt.nodes.where(lambda n: n.name == edges[1][1].name))
+        #else:
+        #    return None 
 
-                for e in self.rt.graph.edges:
-                    if e[0].name == sw0.name and e[1].name == sw1.name:
-                        edges.append(e)
-                        break
-                    elif e[1].name == sw0.name and e[0].name == sw1.name:
-                        edges.append(e)
-                        break
-            except:
-                print("Could not find intermediate link")
-                return [edges[0][2], edges[1][2]]
-        
-        else:
-            return None
-
-        return [edges[0][2], edges[1][2], edges[2][2]]
+        return [edges[1][2], edges[2][2], edges[3][2]]
 
     def check_create_metadata(self, subject, **kwargs):
         

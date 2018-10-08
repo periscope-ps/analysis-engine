@@ -113,11 +113,12 @@ class EsmondTest:
         
         logging.info("Uploading to UNIS: %s test data for %s -> %s", event_type, src_ip, dst_ip) 
 
-        try:
-            subject_links = self.util.get_links(src_ip, dst_ip)
-        except:
-            print("No links")
-            return None 
+        #try:
+        subject_links = self.util.get_links(src_ip, dst_ip)
+        print("Subject LInks:", subject_links)
+        #except:
+        #    print("No links")
+        #    return None 
         
         for l in subject_links:
             print("Trying link", l)

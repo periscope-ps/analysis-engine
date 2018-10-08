@@ -19,7 +19,7 @@ class TestingDaemon:
         self.mesh_config    = conf['mesh_config'] 
         self.jobs           = []
         self.threads		= []
-        logging.basicConfig(filename=log_file, level=logging.INFO)
+        logging.basicConfig(filename=self.log_file, level=logging.INFO)
         logging.info('Log Initialized.')
  
         return
@@ -97,7 +97,9 @@ class TestingDaemon:
         
         logging.info("LOG: %s test thread - updating every %s seconds.\n Src: %s, Dst: %s", test_type, interval, source, destination)
         while True:
+            print("Attempting to fetch " + test_type + " from "  + source + " -> " + destination)
             data = run.fetch(time_range=3600, upload=True) 
+            print("Fetch routine done, waiting for next interval")
             time.sleep(interval)
 
 def _read_config(file_path):
@@ -124,9 +126,9 @@ def _read_config(file_path):
         print(e)
         raise AttributeError('Error in config file, please ensure file is '
                              'formatted correctly and contains values needed.')
-
-def main():
-
+    
+if __name__ == "__main__":
+    
     parser = argparse.ArgumentParser(description='Service for grabbing test results out of Esmond and inserting them into UNIS')
     parser.add_argument('-a', '--archive', default=None, type=str, help='The HOST URL or IP of the testing archive')
     parser.add_argument('-u', '--unis', default="http://localhost:8888", type=str, help="The UNIS url to use for saving and tracking testing results.")
@@ -142,5 +144,3 @@ def main():
     print(conf)
     app = TestingDaemon(conf)
     app.begin()
-if __name__ == "__main__":
-    main()
