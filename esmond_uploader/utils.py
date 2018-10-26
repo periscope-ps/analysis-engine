@@ -5,7 +5,7 @@ from unis.models import Metadata
 class UnisUtil:
     def __init__(self, rt=None):
         self.rt = rt
-        self.rt.addService("unis.services.data.DataService")
+        
         self.rt.addService("unis.services.graph.UnisGrapher")
         self.rt.nodes.load()
         self.rt.ports.load()
@@ -70,14 +70,18 @@ class UnisUtil:
         try:
             meta = next(self.rt.metadata.where({"eventType":event_type, "subject": subject}))
             print("FOUND METADATA", meta.selfRef)            
-        except:
+        except Exception as e:
             print("IN EXCEPTION")
+            print(e)
             logging.info("Could not find metadata for - %s", subject.selfRef)
             
-            meta = self.rt.insert(Metadata({"eventType": event_type, "subject": subject}), commit=True)
+            meta = self.rt.insert(Metadata({"eventType": event_type, "subject": subject, "parameters": {"source":"", "destination":"", "archive":""}}), commit=True)
             print(meta)
             logging.info("Creating metadata obj - %s ", meta.selfRef)
         
+        meta.parameters.source = kwargs['src']
+        meta.parameters.destination = kwargs['dst']
+        meta.parameters.archive = kwargs['archive'][0]['url']
         self.rt.flush()
         print("Returning metadata")         
         return meta.data

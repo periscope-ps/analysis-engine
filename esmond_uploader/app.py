@@ -40,6 +40,7 @@ class TestingDaemon:
 				Mesh: %s", self.archive_url, self.unis, self.mesh_config)
         logging.info("Starting jobs") 
         for job in self.jobs: 
+            self._log("Init thread for " + job['description'])
             test_thread = Thread(target=self._init_test_thread, args=(job,self.conf,)).start()
         for t in self.threads:
             t.join()
@@ -56,9 +57,11 @@ class TestingDaemon:
         
         try:
             self.rt = Runtime(self.unis)
+            self.rt.addService("unis.services.data.DataService")
         except:
             logging.info("COULD NOT CONNECT TO UNIS")
             raise AttributeError("COULD NOT CONNECT TO UNIS")
+            sys.exit(0)
          
         
         self._handle_mesh()
@@ -131,7 +134,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Service for grabbing test results out of Esmond and inserting them into UNIS')
     parser.add_argument('-a', '--archive', default=None, type=str, help='The HOST URL or IP of the testing archive')
-    parser.add_argument('-u', '--unis', default="http://localhost:8888", type=str, help="The UNIS url to use for saving and tracking testing results.")
+    parser.add_argument('-u', '--unis', type=str, help="The UNIS url to use for saving and tracking testing results.")
     parser.add_argument('-m', '--mesh', default=None, type=str, help="URL of the Meshconfig for the tests to track.")
     parser.add_argument('-l', '--log', default="logs/esmond_uploader.log", help="Path to log file")
     parser.add_argument('-c', '--config', default=None, type=str, help="Path to configuration file.")

@@ -60,14 +60,15 @@ class EsmondTest:
         logging.info("Setting working test archive to latest updated test")
 
         latest_archive = None
-        
-        if len(self.archive) == 1:
-            return self.archive[0], self.archive[0]['event-types'][0]['time-updated']
+        print('ARCHIVE URI: ',self.archive[-1]['uri']) 
+        if len(self.archive) >= 1:
+            return self.archive[-1], self.archive[0]['event-types'][0]['time-updated']
         elif len(self.archive) == 0:
             return None, None
         
-        latest =  max(self.archive, key=lambda x:x['event-types'][0]['time-updated'])
-
+        
+        latest =  max(self.archive, key=lambda x:x['event-types'][0]['time-updated'] if x['event-types'][0]['time-updated'] else 0)
+        
         return latest, latest['event-types'][0]['time-updated']
 
     def get_data_url(self, archive, event_type, summary_window=None):     
@@ -123,9 +124,12 @@ class EsmondTest:
         for l in subject_links:
             print("Trying link", l)
             try: 
-                m = self.util.check_create_metadata(l, event=event_type)
+                m = self.util.check_create_metadata(l, src=self.src, dst=self.dst, archive=self.archive, event=event_type)
+                print("METADATA.DATA: ", m)
                 m.append(data["val"], ts=data["ts"])
-            except:
+                
+            except Exception as e:
+                print(e)
                 print("Could not add data")
         return 
 
@@ -158,7 +162,8 @@ class ThroughputTest(EsmondTest):
         if upload:
             try:
                 self.upload_data(data[-1], self.src, self.dst, event_type="throughput")
-            except: 
+            except Exception as e:
+                print("Exception: ", e)
                 logging.info("Could not upload data for throughput | src: %s, dst: %s")
 
         return data
@@ -173,7 +178,7 @@ class HistogramOWDelayTest(EsmondTest):
     
     def fetch(self, time_range=None, upload=False):
         data = self.fetch_data("histogram-owdelay", summary=300, time_range=time_range)
-        #print(data)        
+        
         if len(data) > 1 and type(data) is list:
             data = data[-1]
         elif type(data) is list and len(data) == 1:
