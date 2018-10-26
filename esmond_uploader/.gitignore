@@ -18,3 +18,5 @@ __pycache__/
 *.egg
 logs/esmond_uploader.log
 MANIFEST
+logs/
+*.log
