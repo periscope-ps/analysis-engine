@@ -7,8 +7,13 @@ from unis import Runtime
 from esmond_test import ThroughputTest, HistogramOWDelayTest
 
 TESTS = { 'throughput': ThroughputTest,
-          'latency':    HistogramOWDelayTest}
-
+          'latency':    HistogramOWDelayTest,
+          'Frontend Throughput': ThroughputTest,
+          'Frontend Latency': HistogramOWDelayTest,
+          'Backend Throughput': ThroughputTest,
+          'Backend Latency': HistogramOWDelayTest,
+          'perfsonarbuoy/owamp': HistogramOWDelayTest,
+          "perfsonarbuoy/bwctl": ThroughputTest}
 class TestingDaemon:
     
     def __init__(self, conf, log_file="logs/esmond_uploader.log"):
@@ -40,8 +45,20 @@ class TestingDaemon:
 				Mesh: %s", self.archive_url, self.unis, self.mesh_config)
         logging.info("Starting jobs") 
         for job in self.jobs: 
+            print(job)
             self._log("Init thread for " + job['description'])
-            test_thread = Thread(target=self._init_test_thread, args=(job,self.conf,)).start()
+            
+            if job['parameters']['type'] not in TESTS.keys():
+                continue
+            
+            test_thread = Thread(target=self._init_test_thread, args=(job,self.conf,))
+            if test_thread is not None:
+                self.threads.append(test_thread)
+        
+        print("THREADS", self.threads)
+        
+        for t in self.threads:
+            t.start()
         for t in self.threads:
             t.join()
         
@@ -88,10 +105,14 @@ class TestingDaemon:
     def _init_test_thread(self, job, conf):
         source          = job['members']['members'][0]
         destination     = job['members']['members'][1]
-        test_type       = job['description']
+        test_type       = job['parameters']['type']
         interval        = job['parameters']['interval'] if 'interval' in job['parameters'] else 120 
-        
+        print(test_type)
+        print(TESTS[test_type])
         try:
+            if test_type not in TESTS.keys():
+                return
+
             run = TESTS[test_type](self.archive_url, source=source, destination=destination, runtime=self.rt)
             self._log("THREAD OK")
         except Exception as e:    
