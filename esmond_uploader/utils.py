@@ -68,8 +68,11 @@ class UnisUtil:
         event_type = kwargs['event']
         print("looking for event type", event_type, "for subject :", subject.selfRef)
         try:
-            meta = next(self.rt.metadata.where({"eventType":event_type, "subject": subject}))
-            print("FOUND METADATA", meta.selfRef)            
+            meta = next(self.rt.metadata.where({"subject": subject, "eventType": event_type}))
+            if meta.parameters.source == kwargs['src'] and meta.parameters.destination == kwargs['dst']: 
+                print("FOUND METADATA", meta.selfRef)            
+            else:
+                raise Exception("Could not find metadata")
         except Exception as e:
             print("IN EXCEPTION")
             print(e)

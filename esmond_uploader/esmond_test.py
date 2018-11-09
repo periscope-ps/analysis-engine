@@ -60,9 +60,20 @@ class EsmondTest:
         logging.info("Setting working test archive to latest updated test")
 
         latest_archive = None
-        print('ARCHIVE URI: ',self.archive[-1]['uri']) 
+        
         if len(self.archive) >= 1:
-            return self.archive[-1], self.archive[0]['event-types'][0]['time-updated']
+            for a in self.archive:
+                if latest_archive is None:
+                    latest_archive = a
+                else:
+                    if not a['event-types'][0]['time-updated']:
+                        continue
+                    
+                    if a['event-types'][0]['time-updated'] > latest_archive['event-types'][0]['time-updated']:
+                        latest_archive = a
+            print('ARCHIVE URI: ',latest_archive['uri']) 
+            return latest_archive, latest_archive['event-types'][0]['time-updated'] 
+
         elif len(self.archive) == 0:
             return None, None
         
@@ -114,12 +125,9 @@ class EsmondTest:
         
         logging.info("Uploading to UNIS: %s test data for %s -> %s", event_type, src_ip, dst_ip) 
 
-        #try:
+        
         subject_links = self.util.get_links(src_ip, dst_ip)
         print("Subject LInks:", subject_links)
-        #except:
-        #    print("No links")
-        #    return None 
         
         for l in subject_links:
             print("Trying link", l)
@@ -146,18 +154,22 @@ class ThroughputTest(EsmondTest):
         
         self.src = source
         self.dst = destination
-
+        
+        
         query = EsmondQuery(archive_url, event_type="throughput", source=source, destination=destination)
         EsmondTest.__init__(self, query, runtime=runtime)
-        
+
+        self.pull(latest=True)
+
         return
 
     def fetch(self, time_range=None, upload=False): 
-        data = self.fetch_data("throughput", time_range=time_range)
-        
+                
         if len(self.archive) == 0:
             print("No tests found for query")
             return 
+        
+        data = self.fetch_data('throughput', time_range=time_range)
 
         if upload:
             try:
@@ -171,25 +183,46 @@ class ThroughputTest(EsmondTest):
 class HistogramOWDelayTest(EsmondTest):
     def __init__(self, archive_url, source, destination, runtime=None, summary=300):
         self.src = source
-        self.dest = destination
+        self.dst = destination
         
         query = EsmondQuery(archive_url, event_type="histogram-owdelay", source=source, destination=destination)
         EsmondTest.__init__(self, query, runtime=runtime)
+        self.pull(latest=True)
     
-    def fetch(self, time_range=None, upload=False):
-        data = self.fetch_data("histogram-owdelay", summary=300, time_range=time_range)
+    def fetch(self, time_range=None, upload=False): 
         
+        self.upload = upload
+
+        if len(self.archive) == 0:
+            print("No tests found for query")
+            return
+        
+        data = self.fetch_data("histogram-owdelay", summary=300, time_range=time_range)
+        self.handle_histogram_owdelay(data)
+        
+        data = self.fetch_data("packet-count-lost")
+        self.handle_packet_count_loss(data)
+
+    def handle_packet_count_loss(self, data):
+
+        if len(data) > 1 and type(data) is list:
+            data = data[-1]
+        elif len(data) == 1:
+            data = data[0]
+        
+        if self.upload:
+            try:
+                self.upload_data(data, self.src, self.dst, event_type="packet-count-loss")
+            except:
+                logging.info("Could not upload data for packet-loss-count | src %s, dst: %s", self.src,self.dst)
+    def handle_histogram_owdelay(self, data):
+
         if len(data) > 1 and type(data) is list:
             data = data[-1]
         elif type(data) is list and len(data) == 1:
             data = data[0]
         else:
-            data = data
-        
-        
-        if len(self.archive) == 0:
-            print("No tests found for query")
-            return
+            data = data 
         
         temp_total = 0
         packet_total = 0
@@ -200,11 +233,11 @@ class HistogramOWDelayTest(EsmondTest):
         avg = temp_total / packet_total
         
         res = {"val": avg, "ts":data["ts"]}
-        if upload:
+        if self.upload:
             try:
-                self.upload_data(res, self.src, self.dest, event_type="histogram-owdelay")
+                self.upload_data(res, self.src, self.dst, event_type="histogram-owdelay")
             except:
-                logging.info("Could not upload data for histogram-owdelay | src: %s, dst: %s", self.src, self.dest)
+                logging.info("Could not upload data for histogram-owdelay | src: %s, dst: %s", self.src, self.dst)
         return res
 
 if __name__ == "__main__":
