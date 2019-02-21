@@ -8,7 +8,13 @@ from esmond_test import ThroughputTest, HistogramOWDelayTest
 
 TESTS = { 'throughput': ThroughputTest,
           'latency':    HistogramOWDelayTest,
-          'sdn-throughput': ThroughputTest}
+          'sdn-throughput': ThroughputTest,
+          'Frontend Throughput': ThroughputTest,
+          'Frontend Latency': HistogramOWDelayTest,
+          'Backend Throughput': ThroughputTest,
+          'Backend Latency': HistogramOWDelayTest,
+          'perfsonarbuoy/owamp': HistogramOWDelayTest,
+          "perfsonarbuoy/bwctl": ThroughputTest}
 
 class TestingDaemon:
     
@@ -57,8 +63,6 @@ class TestingDaemon:
                         self.threads.append(test_thread)
                     else:
                         print("Thread for " + p[0] + "-" + p[1] + " none type thread")
-        #for t in self.threads:
-        #    t.join()
         
         return 
 
@@ -107,8 +111,13 @@ class TestingDaemon:
         test_type       = job['description']
         interval        = job['parameters']['interval'] if 'interval' in job['parameters'] else 120 
 
+        
+        logging.info("Trying test for %s - %s", source, destination)
+        
         try:
-            logging.info("Trying test for %s - %s", source, destination)
+            if test_type not in TESTS.keys():
+                return
+
             run = TESTS[test_type](self.archive_url, source=source, destination=destination, runtime=self.rt)
             self._log("THREAD OK")
         except Exception as e:    
