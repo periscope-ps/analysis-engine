@@ -7,7 +7,8 @@ from unis import Runtime
 from esmond_test import ThroughputTest, HistogramOWDelayTest
 
 TESTS = { 'throughput': ThroughputTest,
-          'latency':    HistogramOWDelayTest}
+          'latency':    HistogramOWDelayTest,
+          'sdn-throughput': ThroughputTest}
 
 class TestingDaemon:
     
@@ -39,11 +40,25 @@ class TestingDaemon:
 				Unis: %s\n\
 				Mesh: %s", self.archive_url, self.unis, self.mesh_config)
         logging.info("Starting jobs") 
+        
         for job in self.jobs: 
+            
             self._log("Init thread for " + job['description'])
-            test_thread = Thread(target=self._init_test_thread, args=(job,self.conf,)).start()
-        for t in self.threads:
-            t.join()
+            
+            if len(job['members']['members']) > 2:
+                members = job['members']['members']
+                pairs = [(member1, member2) for member1 in members for member2 in members]
+                [print(p) for p in pairs]
+                    
+                for p in pairs:
+                    test_thread = Thread(target=self._init_test_thread, args=(job,p[0],p[1],self.conf,)).start()
+                    time.sleep(2)
+                    if test_thread is not None:             
+                        self.threads.append(test_thread)
+                    else:
+                        print("Thread for " + p[0] + "-" + p[1] + " none type thread")
+        #for t in self.threads:
+        #    t.join()
         
         return 
 
@@ -58,7 +73,8 @@ class TestingDaemon:
         try:
             self.rt = Runtime(self.unis)
             self.rt.addService("unis.services.data.DataService")
-        except:
+        except Exception as e:
+            print(e)
             logging.info("COULD NOT CONNECT TO UNIS")
             raise AttributeError("COULD NOT CONNECT TO UNIS")
             sys.exit(0)
@@ -85,23 +101,26 @@ class TestingDaemon:
         now = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         return logging.info(msg + " | " + now)    
 
-    def _init_test_thread(self, job, conf):
-        source          = job['members']['members'][0]
-        destination     = job['members']['members'][1]
+    def _init_test_thread(self, job, member1, member2, conf): 
+        source          = member1
+        destination     = member2 
         test_type       = job['description']
         interval        = job['parameters']['interval'] if 'interval' in job['parameters'] else 120 
-        
+
         try:
+            logging.info("Trying test for %s - %s", source, destination)
             run = TESTS[test_type](self.archive_url, source=source, destination=destination, runtime=self.rt)
             self._log("THREAD OK")
         except Exception as e:    
-            self._log("Test not defined for " + test_type + ". Could not start thread")
+            self._log("Test not defined for " + test_type + "| " + source + " - " + destination + ". Could not start thread")
             return
         
         logging.info("LOG: %s test thread - updating every %s seconds.\n Src: %s, Dst: %s", test_type, interval, source, destination)
         while True:
             print("Attempting to fetch " + test_type + " from "  + source + " -> " + destination)
             data = run.fetch(time_range=3600, upload=True) 
+            if data is None:
+                return print("Bad Thread")
             print("Fetch routine done, waiting for next interval")
             time.sleep(interval)
 
@@ -146,4 +165,6 @@ if __name__ == "__main__":
     conf.update(**{k:v for k,v in args.__dict__.items() if v is not None})
     print(conf)
     app = TestingDaemon(conf)
+    print("Starting App")
     app.begin()
+

@@ -25,9 +25,9 @@ class EsmondTest:
         self.query_handler  = EsmondQueryHandler(query)
         self.base_url       = self.query_handler.base_url
         self.archive_host   = query.archive_host
-        
+         
         self.util           = UnisUtil(rt=runtime)
-
+        runtime.addService("unis.services.data.DataService")
         logging.basicConfig(filename='logs/esmond_uploader.log',level=logging.DEBUG)
         
         return
@@ -85,11 +85,31 @@ class EsmondTest:
     def get_data_url(self, archive, event_type, summary_window=None):     
         
         sum_archive = archive
-
+        import pprint
+        
         if summary_window is None:
+            '''
+            for event in archive['event-types']:
+                pprint.pprint(event)
+                if event['event-type'] == event_type:
+                    print("FOUND")
+                    pprint.pprint( event)
+            '''
+
+            event = [event for event in archive['event-types'] if event['event-type'] == event_type][0]
+            base_uri = event['base-uri']
+
+            return self.archive_host + base_uri
             return self.archive_host + [event for event in archive['event-types'] if event['event-type'] == event_type][0]['base-uri']
         else:
-            test = [event for event in sum_archive['event-types'] if event['event-type'] == event_type][0]  
+            print(archive) 
+            #test = [event for event in archive['event-types'] if event['event-type'] == event_type]  
+            print("ARCHIVE", archive)
+            for event in archive['event-types']:
+                pprint.pprint(event)
+                print('\n')
+            print(test)
+            sys.exit(0)
             summary = [summary for summary in test['summaries'] if summary['summary-window'] == str(summary_window)]
             return self.archive_host + summary[0]['uri']
         
@@ -126,8 +146,8 @@ class EsmondTest:
         logging.info("Uploading to UNIS: %s test data for %s -> %s", event_type, src_ip, dst_ip) 
 
         
-        subject_links = self.util.get_links(src_ip, dst_ip)
-        print("Subject LInks:", subject_links)
+        subject_links = [self.util.check_create_virtual_link(src_ip, dst_ip)]
+        print("Subjects:", subject_links)
         
         for l in subject_links:
             print("Trying link", l)
@@ -158,13 +178,17 @@ class ThroughputTest(EsmondTest):
         
         query = EsmondQuery(archive_url, event_type="throughput", source=source, destination=destination)
         EsmondTest.__init__(self, query, runtime=runtime)
-
+        
         self.pull(latest=True)
 
         return
 
     def fetch(self, time_range=None, upload=False): 
-                
+        
+        if self.archive[0] is None:
+            print("Return bad thread") 
+            return
+
         if len(self.archive) == 0:
             print("No tests found for query")
             return 
@@ -172,7 +196,7 @@ class ThroughputTest(EsmondTest):
         data = self.fetch_data('throughput', time_range=time_range)
 
         if upload:
-            try:
+            try: 
                 self.upload_data(data[-1], self.src, self.dst, event_type="throughput")
             except Exception as e:
                 print("Exception: ", e)
@@ -215,6 +239,7 @@ class HistogramOWDelayTest(EsmondTest):
                 self.upload_data(data, self.src, self.dst, event_type="packet-count-loss")
             except:
                 logging.info("Could not upload data for packet-loss-count | src %s, dst: %s", self.src,self.dst)
+
     def handle_histogram_owdelay(self, data):
 
         if len(data) > 1 and type(data) is list:
@@ -241,10 +266,10 @@ class HistogramOWDelayTest(EsmondTest):
         return res
 
 if __name__ == "__main__":
-    rt = Runtime("http://localhost:8888")
+    rt = Runtime("http://iu-ps01.osris.org:8888")
     throughput = ThroughputTest("http://iu-ps01.osris.org", source="192.168.10.202", destination="192.168.10.204", runtime=rt)
     data = throughput.fetch(time_range=3600, upload=True)
 
-    latency    = HistogramOWDelayTest("http://iu-ps01.osris.org", source="192.168.10.202", destination="192.168.10.204", runtime=rt)
-    data       = latency.fetch(time_range=300, upload=True)
+    #latency    = HistogramOWDelayTest("http://iu-ps01.osris.org", source="192.168.10.202", destination="192.168.10.204", runtime=rt)
+    #data       = latency.fetch(time_range=300, upload=True)
     print(data)

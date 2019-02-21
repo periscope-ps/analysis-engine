@@ -1,6 +1,6 @@
 import logging
 from unis import Runtime
-from unis.models import Metadata
+from unis.models import Metadata, Link
 
 class UnisUtil:
     def __init__(self, rt=None):
@@ -63,6 +63,30 @@ class UnisUtil:
 
         return [edges[1][2], edges[2][2], edges[3][2]]
 
+    def check_create_virtual_link(self, src_ip, dst_ip):
+        print("Checking for virtual link between " + src_ip + " and " + dst_ip)
+        try:
+            src_node = next(self.rt.nodes.where(lambda n: n.properties.mgmtaddr == src_ip))
+            dst_node = next(self.rt.nodes.where(lambda n: n.properties.mgmtaddr == dst_ip))
+        
+        except Exception as e:
+            print(e)
+            print("Could not find nodes. get_links( "  + src_ip + ", " + dst_ip + ")")
+            return None, None
+         
+        print("found nodes - src: ", src_node,", dst:", dst_node)
+
+        link_name = "virtual:" + src_node.name + ":" + dst_node.name
+        link = self.rt.links.first_where({"name": link_name})
+        
+        if link is None:
+            print("Creating new virtual link between ", src_node.name, " and ", dst_node.name)
+            link = Link({"name": link_name, "properties":{"type":"virtual"}, "directed": False, "endpoints":[src_node.ports[0], dst_node.ports[0]]})
+            self.rt.insert(link, commit=True)
+        
+        return link
+
+
     def check_create_metadata(self, subject, **kwargs):
         
         event_type = kwargs['event']
@@ -91,7 +115,7 @@ class UnisUtil:
 
 
 if __name__ == "__main__":
-    util = UnisUtil(rt=Runtime("http://localhost:8888"))
-    links = util.get_links("192.168.10.202", "192.168.10.204")
+    util = UnisUtil(rt=Runtime("http://iu-ps01.osris.org:8888"))
+    links = util.check_create_virtual_link("192.168.10.202", "192.168.10.204")
     print(util.check_create_metadata(links[0], event="throughput"))
     
