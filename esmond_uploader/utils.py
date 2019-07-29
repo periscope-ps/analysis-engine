@@ -88,7 +88,6 @@ class UnisUtil:
 
 
     def check_create_metadata(self, subject, **kwargs):
-        
         event_type = kwargs['event']
         print("looking for event type", event_type, "for subject :", subject.selfRef)
         try:

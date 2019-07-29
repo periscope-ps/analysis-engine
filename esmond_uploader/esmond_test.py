@@ -2,11 +2,13 @@ import sys
 import json
 import requests
 import logging
+import time
 
-from esmond_query import EsmondQuery, EsmondQueryHandler
+from esmond_conn import EsmondConnection
 from unis import Runtime
 from unis.models import *
 from utils import UnisUtil
+from settings import TOOL_EVENT_TYPES, DEF_WINDOW
 '''
     In this file, create different classes that handle different testing data from Esmond and
     push the data into unis.
@@ -17,77 +19,46 @@ from utils import UnisUtil
 '''
 
 class EsmondTest:
-    def __init__(self,
-        query,  
-        runtime=None):
+    def __init__(self, name, tool, src, dst, archive, runtime=None):
+        self.name = name
+        self.src = src
+        self.dst = dst
+        self.tool_name = tool
+        self.latest = dict()
+        self.metadata = None
+        self.eventTypes = TOOL_EVENT_TYPES.get(tool, [])
         
-        self.query          = query 
-        self.query_handler  = EsmondQueryHandler(query)
-        self.base_url       = self.query_handler.base_url
-        self.archive_host   = query.archive_host
-         
-        self.util           = UnisUtil(rt=runtime)
+        # TODO: allow query of multiple archives
+        self.ma_url = archive[0]['read_url']
+        
+        # An EsmondCOnnection object will construct an API query based on kwargs after ma_url
+        self.conn = EsmondConnection(self.ma_url, source=src, destination=dst, tool_name=tool)
+        self._update_md()
+        
+        self.util = UnisUtil(rt=runtime)
         runtime.addService("unis.services.data.DataService")
-        logging.basicConfig(filename='logs/esmond_uploader.log',level=logging.DEBUG)
+        logging.basicConfig(filename='logs/esmond_uploader.log',level=logging.DEBUG)        
         
-        return
-    
-    def pull(self, latest=False):
-        '''
-            Pull method gets the archive test entries for the given query.
+    def _update_md(self, latest=False):
+        logging.info("Pulling metadata from Esmond")
+        self.metadata = self.conn.get_metadata()
 
-            param: bool latest - set latest param to True to set the working set of tests to the most recently updated one.
-            returns - a list of valid archive dicts.
-            If @latest is set, returns a list with a single archive dict entry.
-        '''
-        logging.info("pulling test entries from Esmond")
-
-        self.archive    = self.query_handler.get() 
-
-        if latest:
-            archive, timestamp = self.get_latest()
-            self.archive = [archive]
+    def fetch(self, upload=False):
+        pass
         
-        return self.archive
-
-    def get_latest(self):    
-        '''
-            Sets working test archive to the most recently updated test given the query results.
-
-            Just look at the first event in each archived test and compare timestamps.
-            returns - <archive entry dict>, <timestamp value>
-        '''
-        logging.info("Setting working test archive to latest updated test")
-
-        latest_archive = None
+    def _fetch(self, et, summary=None):
+        ret = []
+        for md in self.metadata:
+            now = int(time.time())
+            window = self.latest.get(et, (now-DEF_WINDOW))
+            self.latest[et] = now
+            data = self._get_data(md, et, window, summary)
+            ret = ret + data
+        return ret
         
-        if len(self.archive) >= 1:
-            for a in self.archive:
-                if latest_archive is None:
-                    latest_archive = a
-                else:
-                    if not a['event-types'][0]['time-updated']:
-                        continue
-                    
-                    if a['event-types'][0]['time-updated'] > latest_archive['event-types'][0]['time-updated']:
-                        latest_archive = a
-            print('ARCHIVE URI: ',latest_archive['uri']) 
-            return latest_archive, latest_archive['event-types'][0]['time-updated'] 
-
-        elif len(self.archive) == 0:
-            return None, None
-        
-        
-        latest =  max(self.archive, key=lambda x:x['event-types'][0]['time-updated'] if x['event-types'][0]['time-updated'] else 0)
-        
-        return latest, latest['event-types'][0]['time-updated']
-
-    def get_data_url(self, archive, event_type, summary_window=None):     
-        
-        sum_archive = archive
-        import pprint
-        
-        if summary_window is None:
+    def _get_data_url(self, md, event_type, summary=None):
+        event = [event for event in md['event-types'] if event['event-type'] == event_type][0]
+        if summary is None:
             '''
             for event in archive['event-types']:
                 pprint.pprint(event)
@@ -95,160 +66,114 @@ class EsmondTest:
                     print("FOUND")
                     pprint.pprint( event)
             '''
-
-            event = [event for event in archive['event-types'] if event['event-type'] == event_type][0]
             base_uri = event['base-uri']
-
-            return self.archive_host + base_uri
-            return self.archive_host + [event for event in archive['event-types'] if event['event-type'] == event_type][0]['base-uri']
+            return self.ma_url + base_uri
         else:
-            print(archive) 
-            #test = [event for event in archive['event-types'] if event['event-type'] == event_type]  
-            print("ARCHIVE", archive)
-            for event in archive['event-types']:
-                pprint.pprint(event)
-                print('\n')
-            print(test)
-            sys.exit(0)
-            summary = [summary for summary in test['summaries'] if summary['summary-window'] == str(summary_window)]
-            return self.archive_host + summary[0]['uri']
+            summaries = [s for s in event['summaries'] if s['summary-window'] == str(summary)]
+            return self.ma_url + summaries[0]['uri']
         
-    def fetch_data(self, event_type, time_range=None, summary=None):    
+    def _get_data(self, md, event_type, time_start=None, summary=None):
         '''
-            Extracts the actual test data for a given query, eg. {throughput:123456, ts:98765432}
-            param: event_type - specify the string value of the event you are looking for in your query result
-            param(optional): time_range - limit the query only results in the given time range (recommended, mostly to avoid pulling in huge data objects)
+        Extracts the actual test data for a given query, eg. {throughput:123456, ts:98765432}
+        
+        param: event_type - specify the string value of the event you are looking
+        for in your query result
 
-            returns - whatever dict the specified event in esmond conforms to.
+        param(optional): time_start - get data starting a this timestamp
+        
+        returns - whatever collection the specified event in esmond conforms to.
+
         '''
-        logging.info("Begin fetching %s test data within time range %s", event_type, time_range)
-
-        self.pull(latest=True)
-        data_url = self.get_data_url(self.archive[0], event_type, summary_window=summary) 
-        data_url = (data_url + "?time-range=" + str(time_range)) if time_range is not None else data_url
-
+        logging.info("Begin fetching {} test data from time {}".format(event_type, time_start))
+        data_url = self._get_data_url(md, event_type, summary)
+        data_url = (data_url + "?time-start=" + str(time_start)) if time_start else data_url
         try:
-            data = requests.get(data_url).json()
-        except requests.exceptions.RequestException as e:
-            print("Failure getting data from URL: ", data_url)
-            print(e)
-        
-        return data
+            data = requests.get(data_url)
+            if data.status_code != 200:
+                raise ValueError("Server response is not 200 OK!")
+        except (requests.exceptions.RequestException, ValueError) as e:
+            print("Failure getting data from {}: {}".format(data_url, e))
+            return []
+        return data.json()
 
-    def upload_data(self, data, src_ip, dst_ip, event_type):
+    def _upload_data(self, data, event_type):
         '''
-            Upload the test data to the correct metadata tag.
-            - finds the link resources and their metadata objects
-            - if there is no associated metadata obj for a link, creates one
-            - adds the last test value to each metadata obj
+        Upload the test data to the correct metadata tag.
+        - finds the link resources and their metadata objects
+        - if there is no associated metadata obj for a link, creates one
+        - adds the last test value to each metadata obj
         '''
         
-        logging.info("Uploading to UNIS: %s test data for %s -> %s", event_type, src_ip, dst_ip) 
-
+        logging.info("Uploading to UNIS: {} test data for {} -> {}".format(event_type, self.src, self.dst))
         
-        subject_links = [self.util.check_create_virtual_link(src_ip, dst_ip)]
+        subject_links = [self.util.check_create_virtual_link(self.src, self.dst)]
         print("Subjects:", subject_links)
         
         for l in subject_links:
             print("Trying link", l)
             try: 
-                m = self.util.check_create_metadata(l, src=self.src, dst=self.dst, archive=self.archive, event=event_type)
+                m = self.util.check_create_metadata(l, src=self.src, dst=self.dst,
+                                                    event=event_type)
                 print("METADATA.DATA: ", m)
                 m.append(data["val"], ts=data["ts"])
-                
             except Exception as e:
                 print(e)
                 print("Could not add data")
-        return 
-
 
 '''
+Define Subclasses for individual test types here.
 
-       Define Subclasses for individual test types here.
-       
-       Classes defined here are serve mainly to provide an interface for grabbing test data from Esmond. Different tests can have different result formats.
-       Classes should provide the same interface of (self, archive_url, source, destination, runtime)
+Classes defined here are serve mainly to provide an interface for grabbing test
+data from Esmond. Different tests can have different result formats.  Classes
+should provide the same interface of (self, archive_url, source, destination,
+runtime)
+
 '''
 class ThroughputTest(EsmondTest):
-    def __init__(self, archive_url, source, destination, runtime=None):
-        
-        self.src = source
-        self.dst = destination
-        
-        
-        query = EsmondQuery(archive_url, event_type="throughput", source=source, destination=destination)
-        EsmondTest.__init__(self, query, runtime=runtime)
-        
-        self.pull(latest=True)
-
-        return
-
-    def fetch(self, time_range=None, upload=False): 
-        
-        if self.archive[0] is None:
-            print("Return bad thread") 
-            return
-
-        if len(self.archive) == 0:
-            print("No tests found for query")
-            return 
-        
-        data = self.fetch_data('throughput', time_range=time_range)
-
-        if upload:
-            try: 
-                self.upload_data(data[-1], self.src, self.dst, event_type="throughput")
-            except Exception as e:
-                print("Exception: ", e)
-                logging.info("Could not upload data for throughput | src: %s, dst: %s")
-
-        return data
+    def fetch(self, upload=False):
+        ret = dict()
+        for et in self.eventTypes:
+            data = self._fetch(et)
+            ret[et] = data
+            if upload:
+                self.upload_data(data, et)
+        return ret
 
 class HistogramOWDelayTest(EsmondTest):
-    def __init__(self, archive_url, source, destination, runtime=None, summary=300):
-        self.src = source
-        self.dst = destination
-        
-        query = EsmondQuery(archive_url, event_type="histogram-owdelay", source=source, destination=destination)
-        EsmondTest.__init__(self, query, runtime=runtime)
-        self.pull(latest=True)
-    
-    def fetch(self, time_range=None, upload=False): 
-        
+    def fetch(self, upload=False):
+        ret = dict()
         self.upload = upload
 
-        if len(self.archive) == 0:
-            print("No tests found for query")
-            return
+        data = self._fetch("histogram-owdelay", summary=300)
+        res = self.handle_histogram_owdelay(data)
+        ret["histogram-owdelay"] = res
         
-        data = self.fetch_data("histogram-owdelay", summary=300, time_range=time_range)
-        self.handle_histogram_owdelay(data)
-        
-        data = self.fetch_data("packet-count-lost")
-        self.handle_packet_count_loss(data)
+        data = self._fetch("packet-count-lost")
+        res = self.handle_packet_count_loss(data)
+        ret["packet-count-lost"] = res
+        return ret
 
     def handle_packet_count_loss(self, data):
-
         if len(data) > 1 and type(data) is list:
             data = data[-1]
         elif len(data) == 1:
             data = data[0]
-        
+
         if self.upload:
             try:
-                self.upload_data(data, self.src, self.dst, event_type="packet-count-loss")
+                self.upload_data(data, "packet-count-loss")
             except:
                 logging.info("Could not upload data for packet-loss-count | src %s, dst: %s", self.src,self.dst)
+        return data
 
     def handle_histogram_owdelay(self, data):
-
         if len(data) > 1 and type(data) is list:
             data = data[-1]
         elif type(data) is list and len(data) == 1:
             data = data[0]
-        else:
-            data = data 
-        
+        elif not len(data):
+            return data
+            
         temp_total = 0
         packet_total = 0
         for k, v in data['val'].items():
@@ -260,7 +185,7 @@ class HistogramOWDelayTest(EsmondTest):
         res = {"val": avg, "ts":data["ts"]}
         if self.upload:
             try:
-                self.upload_data(res, self.src, self.dst, event_type="histogram-owdelay")
+                self._upload_data(res, "histogram-owdelay")
             except:
                 logging.info("Could not upload data for histogram-owdelay | src: %s, dst: %s", self.src, self.dst)
         return res
