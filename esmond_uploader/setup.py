@@ -24,11 +24,12 @@ setup(
     ],
     install_requires=[
         "requests",
-        "python-daemon"
+        "python-daemon",
+        "prometheus_client"
     ],
- 	entry_points = {
+    entry_points = {
         'console_scripts': [
             'esmond_uploader = app:main'
-		]
-	}
+	]
+    }
 )
