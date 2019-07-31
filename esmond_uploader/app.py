@@ -56,6 +56,13 @@ class TestingDaemon:
             start_http_server(8000)
             REGISTRY.register(self)
 
+    def _merge_data(self, orig, new):
+        for k,v in new.items():
+            if (k in orig and isinstance(orig[k], dict)):
+                self._merge_data(orig[k], new[k])
+            else:
+                orig[k] = new[k]
+            
     # Prometheus collect routine
     def collect(self):
         labels = ['src', 'dst', 'tool', 'summary']
@@ -88,7 +95,7 @@ class TestingDaemon:
                                         val = 1
                                     else:
                                         val = v['val']
-                                    cls[et].add_metric([src, dst, tool, s], val, v['ts'])
+                                    cls[et].add_metric([src, dst, tool, s], val)
                                 yield cls[et]
                             except:
                                 continue
@@ -203,14 +210,11 @@ class TestingDaemon:
         tool = job['tool-name']
         key = job['metadata-key']
         run = ArchiveTest(self.archive, job)
-
-        #if source != "129.79.51.136" or destination != "141.211.169.7" or tool != "pscheduler/iperf3":
-        #    return
         
         while True:
             has_data, data = run.fetch(upload=False)
             log.info("Completed {} for {} -> {}, waiting {}".format(tool, source, destination, DEF_INTERVAL))
-            self.data[key] = {**self.data[key], **data}
+            self._merge_data(self.data[key], data)
             time.sleep(DEF_INTERVAL)
             
     def _mesh_thread(self, job, member1, member2):
@@ -220,6 +224,7 @@ class TestingDaemon:
         destination     = member2
         jtype           = job['parameters']['type']
         tool            = MESH_TO_PSTOOL[jtype]
+        key             = job['metadata-key']
         interval        = job['parameters']['interval'] if 'interval' in job['parameters'] else DEF_INTERVAL
         
         log.debug("Initializing {} for {} -> {} (interval={})".format(tool, source, destination, interval))
@@ -227,7 +232,7 @@ class TestingDaemon:
         while True:
             has_data, data = run.fetch(upload=False)
             log.info("Completed {}: {} -> {}, waiting {}".format(tool, source, destination, interval))
-            self.data[key] = {**self.data[key], **data}
+            self._merge_data(self.data[key], data)
             time.sleep(interval)
 
 def _read_config(file_path):
