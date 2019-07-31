@@ -3,10 +3,14 @@ from time import gmtime, strftime
 from threading import Thread
 from configparser import ConfigParser
 from logging import handlers
+from collections import defaultdict, OrderedDict
+
+from prometheus_client import start_http_server
+from prometheus_client.core import REGISTRY
 
 from esmond_test import ThroughputTest, HistogramOWDelayTest, ArchiveTest
 from unis import Runtime
-from settings import MESH_TO_PSTOOL, TOOL_EVENT_TYPES, DEF_INTERVAL
+from settings import MESH_TO_PSTOOL, TOOL_EVENT_TYPES, DEF_INTERVAL, PROM_CONFIG
 
 MESH_TESTS = {
     "perfsonarbuoy/bwctl": ThroughputTest,
@@ -22,11 +26,13 @@ class TestingDaemon:
         self.unis           = conf['unis']
         self.archive        = conf['archive']
         self.mesh           = conf['mesh_config']
+        self.prom           = conf['prometheus']
         self.verbose        = conf['verbose']
         self.quiet          = conf['quiet']
         self.jobs           = []
         self.threads	    = []
         self.metadata       = None
+        self.data           = defaultdict(dict)
         
         # Setup logging
         form  = '[%(asctime)s] [%(threadName)s] %(levelname)s: %(msg)s'
@@ -46,6 +52,65 @@ class TestingDaemon:
             log.error("No MA or Mesh URLs given, exiting!")
             sys.exit(1)
 
+        if self.prom:
+            start_http_server(8000)
+            REGISTRY.register(self)
+
+    # Prometheus collect routine
+    def collect(self):
+        labels = ['src', 'dst', 'tool', 'summary']
+        cls = dict()
+        
+        # first create the metric classes
+        for k in PROM_CONFIG.keys():
+            for p in PROM_CONFIG[k]:
+                et = p['eventType']
+                cls[et] = p['class']("perfsonar_"+et.replace("-", "_"), p['description'], labels=labels)
+
+        # now add some metrics from our stored esmond data
+        for j in self.jobs:
+            tool = j['tool-name']
+            src = j['input-source']
+            dst = j['input-destination']
+            key = j['metadata-key']
+
+            if tool in PROM_CONFIG.keys():
+                pconf = PROM_CONFIG[tool]
+                for p in pconf:
+                    et = p['eventType']
+                    if cls[et].type == "gauge":
+                        for s in p['summaries']:
+                            try:
+                                vals = self.data[key][et][s]
+                                for v in vals:
+                                    # convert non-number values to binary 1
+                                    if isinstance(v['val'], dict) or isinstance(v['val'], str):
+                                        val = 1
+                                    else:
+                                        val = v['val']
+                                    cls[et].add_metric([src, dst, tool, s], val, v['ts'])
+                                yield cls[et]
+                            except:
+                                continue
+                    elif cls[et].type == "histogram":
+                        for s in p['summaries']:
+                            try:
+                                vals = self.data[key][et][s]
+                                for entry in vals:
+                                    buckets = []
+                                    cnt = 0
+                                    summ = 0
+                                    od = OrderedDict(sorted(entry['val'].items()))
+                                    for k,v in od.items():
+                                        buckets.append((k,v))
+                                        summ += (float(k) * v)
+                                        cnt += v
+                                    buckets.append(('+Inf', cnt))
+                                    cls[et].add_metric([src, dst, tool, s], buckets, summ)
+                                yield cls[et]
+                            except:
+                                pass
+                
     def _setup_archive(self):
         log.info("Using esmond MA URL to initialize jobs")
         meta = self.metadata
@@ -136,11 +201,16 @@ class TestingDaemon:
         source = job['source']
         destination = job['destination']
         tool = job['tool-name']
+        key = job['metadata-key']
         run = ArchiveTest(self.archive, job)
+
+        #if source != "129.79.51.136" or destination != "141.211.169.7" or tool != "pscheduler/iperf3":
+        #    return
+        
         while True:
             has_data, data = run.fetch(upload=False)
             log.info("Completed {} for {} -> {}, waiting {}".format(tool, source, destination, DEF_INTERVAL))
-            log.debug(data)
+            self.data[key] = {**self.data[key], **data}
             time.sleep(DEF_INTERVAL)
             
     def _mesh_thread(self, job, member1, member2):
@@ -157,7 +227,7 @@ class TestingDaemon:
         while True:
             has_data, data = run.fetch(upload=False)
             log.info("Completed {}: {} -> {}, waiting {}".format(tool, source, destination, interval))
-            log.debug(data)
+            self.data[key] = {**self.data[key], **data}
             time.sleep(interval)
 
 def _read_config(file_path):
@@ -206,6 +276,7 @@ def main():
             'quiet': args.quiet}
     conf.update(**_read_config(args.config))
     conf.update(**{k:v for k,v in args.__dict__.items() if v is not None})
+
     app = TestingDaemon(conf)
     app.start()
 

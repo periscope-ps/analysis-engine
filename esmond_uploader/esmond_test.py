@@ -3,7 +3,6 @@ import json
 import requests
 import logging
 import time
-
 from collections import defaultdict
 from esmond_conn import EsmondConnection
 from unis import Runtime
@@ -37,15 +36,18 @@ class ArchiveTest:
             window = self.latest.get(et_name, (now-DEF_WINDOW))
             self.latest[et_name] = now
             data = self.conn.get_data(self.metadata, et_name, window)
-            has_data = True if len(data) else False
-            ret[et_name]['base'] = data
-            ret[et_name]['summaries'] = dict()
+            if len(data):
+                has_data = True
+                ret[et_name]['base'] = data
+
             if et.get('summaries', None):
                 for s in et['summaries']:
                     swin = s['summary-window']
                     data = self.conn.get_data(self.metadata, et_name,
                                               window, summary=swin)
-                    ret[et_name]['summaries'][swin] = data
+                    if len(data):
+                        has_data = True
+                        ret[et_name][swin] = data
         return (has_data, ret)
                 
 class MeshTest:
@@ -120,8 +122,9 @@ class ThroughputTest(MeshTest):
         ret = dict()
         for et in self.eventTypes:
             data = self._fetch(et)
-            has_data = True if len(data) else False
-            ret[et] = data
+            if len(data):
+                has_data = True
+                ret[et] = data
             if upload:
                 self.upload_data(data, et)
         return (has_data, ret)
@@ -132,14 +135,16 @@ class HistogramOWDelayTest(MeshTest):
         self.upload = upload
 
         data = self._fetch("histogram-owdelay", summary=300)
-        has_data = True if len(data) else False
-        res = self.handle_histogram_owdelay(data)
-        ret["histogram-owdelay"] = res
+        if len(data):
+            has_data = True
+            res = self.handle_histogram_owdelay(data)
+            ret["histogram-owdelay"] = res
         
         data = self._fetch("packet-count-lost")
-        has_data = True if len(data) else False
-        res = self.handle_packet_count_loss(data)
-        ret["packet-count-lost"] = res
+        if len(data):
+            has_data = True
+            res = self.handle_packet_count_loss(data)
+            ret["packet-count-lost"] = res
         return (has_data, ret)
 
     def handle_packet_count_loss(self, data):
