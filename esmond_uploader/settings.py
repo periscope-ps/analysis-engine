@@ -4,6 +4,11 @@ from prometheus_client.core import GaugeMetricFamily, HistogramMetricFamily
 DEF_INTERVAL=120
 DEF_WINDOW=600
 
+MESH_TESTS = [
+    "perfsonarbuoy/bwctl",
+    "perfsonarbuoy/owamp"
+]
+
 MESH_TO_PSTOOL = {
     "perfsonarbuoy/bwctl": "pscheduler/iperf3",
     "perfsonarbuoy/owamp": "pscheduler/powstream",
@@ -15,6 +20,8 @@ TOOL_EVENT_TYPES = {
     "pscheduler/powstream": ["packet-loss-rate", "histogram-owdelay"],
 }
 
+# Prometheus exporter configuration
+PROM_PORT = 8000
 PROM_CONFIG = {
     "pscheduler/iperf3" : [
         {

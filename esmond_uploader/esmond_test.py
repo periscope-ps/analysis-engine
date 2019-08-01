@@ -21,13 +21,13 @@ from settings import TOOL_EVENT_TYPES, DEF_WINDOW
 log = logging.getLogger("esmond_test")
 
 class ArchiveTest:
-    def __init__(self, ma_url, md):
+    def __init__(self, ma_url, md, upload=False):
         self.metadata = md
         self.latest = dict()
         self.data = dict()
         self.conn = EsmondConnection(ma_url)
         
-    def fetch(self, upload=False):
+    def fetch(self):
         has_data = False
         ret = defaultdict(dict)
         now = int(time.time())
@@ -50,65 +50,34 @@ class ArchiveTest:
                         ret[et_name][swin] = data
         return (has_data, ret)
                 
-class MeshTest:
-    def __init__(self, name, tool, src, dst, archive, runtime=None):
-        self.name = name
+class MeshEntry:
+    def __init__(self, tool, src, dst, archive):
         self.src = src
         self.dst = dst
         self.tool_name = tool
-        self.latest = dict()
         self.metadata = None
         self.eventTypes = TOOL_EVENT_TYPES.get(tool, [])
         
         # TODO: allow query of multiple archives
-        ma_url = archive[0]['read_url']
+        self.ma_url = archive[0]['read_url']
         
-        # An EsmondCOnnection object will construct an API query based on kwargs after ma_url
-        self.conn = EsmondConnection(ma_url, source=src, destination=dst, tool_name=tool)
-        self._update_md()
-        
-        self.util = UnisUtil(rt=runtime)
-        runtime.addService("unis.services.data.DataService")
-        
-    def _update_md(self, latest=False):
-        log.debug("Pulling metadata from Esmond")
+        # An EsmondCOnnection object will construct an API query based on kwargs
+        # after ma_url
+        self.conn = EsmondConnection(self.ma_url, source=src,
+                                     destination=dst, tool_name=tool)
+                
+    def get_metadata(self):
+        log.debug("Pulling metadata from Esmond for {} / {} -> {}".format(self.tool_name,
+                                                                          self.src,
+                                                                          self.dst))
         self.metadata = self.conn.get_metadata()
+        return self.metadata
 
-    def fetch(self, upload=False):
-        return (False, dict())
-        
-    def _fetch(self, et, summary=None):
-        ret = []
-        for md in self.metadata:
-            now = int(time.time())
-            window = self.latest.get(et, (now-DEF_WINDOW))
-            self.latest[et] = now
-            data = self.conn.get_data(md, et, window, summary)
-            ret = ret + data
-        return ret
-        
-    def _upload_data(self, data, event_type):
-        '''
-        Upload the test data to the correct metadata tag.
-        - finds the link resources and their metadata objects
-        - if there is no associated metadata obj for a link, creates one
-        - adds the last test value to each metadata obj
-        '''
-        
-        log.debug("Uploading to UNIS: {} test data for {} -> {}".format(event_type, self.src, self.dst))
-        
-        subject_links = [self.util.check_create_virtual_link(self.src, self.dst)]
-        
-        for l in subject_links:
-            try: 
-                m = self.util.check_create_metadata(l, src=self.src, dst=self.dst,
-                                                    event=event_type)
-                m.append(data["val"], ts=data["ts"])
-            except Exception as e:
-                log.error("Could not add data")
+    def get_archive(self):
+        return self.ma_url
 
 '''
-Define Subclasses for individual MeshTest types here.
+Define Subclasses for individual ArchiveTest types here.
 
 Classes defined here are serve mainly to provide an interface for grabbing test
 data from Esmond. Different tests can have different result formats.  Classes
@@ -116,7 +85,7 @@ should provide the same interface of (self, archive_url, source, destination,
 runtime)
 
 '''    
-class ThroughputTest(MeshTest):
+class ThroughputTest(ArchiveTest):
     def fetch(self, upload=False):
         has_data = False
         ret = dict()
@@ -129,7 +98,7 @@ class ThroughputTest(MeshTest):
                 self.upload_data(data, et)
         return (has_data, ret)
 
-class HistogramOWDelayTest(MeshTest):
+class HistogramOWDelayTest(ArchiveTest):
     def fetch(self, upload=False):
         ret = dict()
         self.upload = upload

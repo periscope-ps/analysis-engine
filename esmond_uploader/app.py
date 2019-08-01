@@ -8,14 +8,9 @@ from collections import defaultdict, OrderedDict
 from prometheus_client import start_http_server
 from prometheus_client.core import REGISTRY
 
-from esmond_test import ThroughputTest, HistogramOWDelayTest, ArchiveTest
+from esmond_test import MeshEntry, ArchiveTest
 from unis import Runtime
-from settings import MESH_TO_PSTOOL, TOOL_EVENT_TYPES, DEF_INTERVAL, PROM_CONFIG
-
-MESH_TESTS = {
-    "perfsonarbuoy/bwctl": ThroughputTest,
-    "perfsonarbuoy/owamp": HistogramOWDelayTest
-}
+from settings import *
 
 log = logging.getLogger("app")
 
@@ -23,9 +18,9 @@ class TestingDaemon:
     def __init__(self, conf):
         self.conf           = conf
         self.log_file       = conf['log_file']
-        self.unis           = conf['unis']
-        self.archive        = conf['archive']
-        self.mesh           = conf['mesh_config']
+        self.unis           = conf['unis_url']
+        self.archive        = conf['archive_url']
+        self.mesh           = conf['mesh_url']
         self.prom           = conf['prometheus']
         self.verbose        = conf['verbose']
         self.quiet          = conf['quiet']
@@ -53,7 +48,11 @@ class TestingDaemon:
             sys.exit(1)
 
         if self.prom:
-            start_http_server(8000)
+            try:
+                start_http_server(PROM_PORT)
+            except OSError as e:
+                log.error("Could not start Prometheus exporter: {}".format(e))
+                sys.exit(1)
             REGISTRY.register(self)
 
     def _merge_data(self, orig, new):
@@ -126,34 +125,46 @@ class TestingDaemon:
             # filter test types we care about
             if not tool or tool not in TOOL_EVENT_TYPES.keys():
                 continue
+            test['archive'] = self.archive
             self.jobs.append(test)
             
     def _setup_mesh(self):
         log.info("Using MeshConfig URL to initialize jobs")
         mesh = self.metadata
         gMA = mesh.get('measurement_archives', None)
+        
         for test in mesh['tests']:
             job_type = test['parameters']['type']
             tool = MESH_TO_PSTOOL.get(job_type, None)
             
             # filter test types we care about
-            if not tool or job_type not in MESH_TESTS.keys():
+            if not tool or job_type not in MESH_TESTS:
                 continue
+
+            # update archive URLs
+            test_type = test['parameters']['type']
+            archives = []
+            for ma in gMA:
+                if ma['type'] == test_type:
+                    archives.append(ma)
             
             # set testing pairs
             members = test['members']['members']
-            test['pairs'] = []
             if len(members) > 2:
-                test['pairs'] = [(member1, member2) for member1 in members for member2 in members]
-                
-            # update archive URLs
-            test_type = test['parameters']['type']
-            if not test.get('archive', None):
-                test['archive'] = list()
-            for ma in gMA:
-                if ma['type'] == test_type:
-                    test['archive'].append(ma)
-            self.jobs.append(test)
+                pairs = [(member1, member2) for member1 in members for member2 in members]
+                for p in pairs:
+                    if p[0] == p[1]:
+                        continue
+                    # turn a mesh testing pair into metadata we can query for data
+                    mt = MeshEntry(tool, p[0], p[1], archives)
+                    meta = mt.get_metadata()
+                    if len(meta) == 1:
+                        test = meta[0]
+                        test['archive'] = mt.get_archive()
+                        self.jobs.append(test)
+                    else:
+                        log.debug("No measurement metadata found for {} / {} -> {}".
+                                  format(tool, p[0], p[1]))
             
     def _setup(self):
         '''
@@ -183,57 +194,37 @@ class TestingDaemon:
             self._setup_mesh()
     
     def start(self):
-        self._setup()
-        
         log.info("Config - \n\
 	  Archive Host: {}\n\
 	  UNIS: \t{}\n\
-	  Mesh: \t{}".format(self.archive, self.unis, self.mesh))
-        log.info("Starting jobs [{}]".format(len(self.jobs)))
+	  Mesh: \t{}\n\
+          Prometheus: \t{}".format(self.archive,
+                                   self.unis,
+                                   self.mesh,
+                                   self.prom))
 
+        # Get a list of jobs to execute based on the config
+        self._setup()
+        
+        log.info("Starting jobs [{}]".format(len(self.jobs)))
         for job in self.jobs:
-            if job.get('pairs', None):
-                for p in job['pairs']:
-                    if p[0] == p[1]:
-                        continue
-                    th = Thread(target=self._mesh_thread, args=(job, p[0], p[1],)).start()
-                    if th is not None:
-                        self.threads.append(th)
-            else:
-                th = Thread(target=self._archive_thread, args=(job,)).start()
-                if th is not None:
-                    self.threads.append(th)
+            th = Thread(target=self._archive_thread, args=(job,)).start()
+            if th is not None:
+                self.threads.append(th)
 
     def _archive_thread(self, job):
         source = job['source']
         destination = job['destination']
         tool = job['tool-name']
         key = job['metadata-key']
-        run = ArchiveTest(self.archive, job)
+        archive = job['archive']
         
+        run = ArchiveTest(archive, job)
         while True:
-            has_data, data = run.fetch(upload=False)
+            has_data, data = run.fetch()
             log.info("Completed {} for {} -> {}, waiting {}".format(tool, source, destination, DEF_INTERVAL))
             self._merge_data(self.data[key], data)
             time.sleep(DEF_INTERVAL)
-            
-    def _mesh_thread(self, job, member1, member2):
-        description     = job['description']
-        archives        = job['archive']
-        source          = member1
-        destination     = member2
-        jtype           = job['parameters']['type']
-        tool            = MESH_TO_PSTOOL[jtype]
-        key             = job['metadata-key']
-        interval        = job['parameters']['interval'] if 'interval' in job['parameters'] else DEF_INTERVAL
-        
-        log.debug("Initializing {} for {} -> {} (interval={})".format(tool, source, destination, interval))
-        run = MESH_TESTS[jtype](description, tool, source, destination, archives, runtime=self.rt)
-        while True:
-            has_data, data = run.fetch(upload=False)
-            log.info("Completed {}: {} -> {}, waiting {}".format(tool, source, destination, interval))
-            self._merge_data(self.data[key], data)
-            time.sleep(interval)
 
 def _read_config(file_path):
     if not file_path:
@@ -248,10 +239,10 @@ def _read_config(file_path):
 
     config = parser['CONFIG']
     try:
-        result = {'unis': config['unis'],
+        result = {'unis_url'   : config['unis_url'],
                   'archive_url': config['archive_url'],
-                  'mesh_config': config['mesh_config'],
-                  'log_file': config['log_file']}
+                  'mesh_url'   : config['mesh_url'],
+                  'log_file'   : config['log_file']}
         
         return result
 
@@ -272,13 +263,10 @@ def main():
     
     args = parser.parse_args()
     
-    conf = {'unis': args.unis,
-            'archive': args.archive,
-            'mesh_config': args.mesh,
-            'prometheus': args.prometheus,
-            'log_file': args.log,
-            'verbose': args.verbose,
-            'quiet': args.quiet}
+    conf = {'unis_url': args.unis,
+            'archive_url': args.archive,
+            'mesh_url': args.mesh,
+            'log_file': args.log}
     conf.update(**_read_config(args.config))
     conf.update(**{k:v for k,v in args.__dict__.items() if v is not None})
 

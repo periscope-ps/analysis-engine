@@ -1,6 +1,10 @@
 import sys
 import requests
 import json
+import logging
+
+
+log = logging.getLogger("esmond_conn")
 
 class EsmondConnection:
     '''
