@@ -4,6 +4,15 @@ The uploader is a service that pulls esmond testing data based on a PWA
 MeshConfig, or directly using a PerfSONAR MA URL, and exports it into the
 desired UNIS or Prometheus instance(s).
 
+## Setup
+
+To run out of your source directory:
+```
+python3 setup.py develop
+```
+
+Then, `esmond_uploader` will be available in your path.
+
 ## Usage
 ```
 usage: esmond_uploader [-h] [-a ARCHIVE] [-u UNIS] [-m MESH] [-p] [-l LOG]
