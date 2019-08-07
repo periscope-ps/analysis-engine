@@ -13,6 +13,18 @@ python3 setup.py develop
 
 Then, `esmond_uploader` will be available in your path.
 
+To avoid system-side python issues, try a VirtualEnv:
+
+```
+python3 -m venv <dir>
+source <dir>/bin/activate
+pip3 install docutils
+python3 setup.py develop
+```
+
+Now everything for the uploader service will be installed in your venv at <dir>
+and not use any system-wide imports.
+
 ## Usage
 ```
 usage: esmond_uploader [-h] [-a ARCHIVE] [-u UNIS] [-m MESH] [-p] [-l LOG]

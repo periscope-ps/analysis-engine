@@ -23,6 +23,9 @@ setup(
         "git+https://github.com/periscope-ps/unisrt.git/@develop#egg=unisrt",
     ],
     install_requires=[
+        "websockets==4.0.1",
+        "lace",
+        "unisrt",
         "requests",
         "python-daemon",
         "prometheus_client"
