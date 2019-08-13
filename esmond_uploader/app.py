@@ -21,6 +21,7 @@ class TestingDaemon:
         self.unis           = conf['unis_url']
         self.archive        = conf['archive_url']
         self.mesh           = conf['mesh_url']
+        self.interval       = conf['interval']
         self.prom           = conf['prometheus']
         self.verbose        = conf['verbose']
         self.quiet          = conf['quiet']
@@ -198,9 +199,11 @@ class TestingDaemon:
 	  Archive Host: {}\n\
 	  UNIS: \t{}\n\
 	  Mesh: \t{}\n\
+          Interval: \t{}\n\
           Prometheus: \t{}".format(self.archive,
                                    self.unis,
                                    self.mesh,
+                                   self.interval,
                                    self.prom))
 
         # Get a list of jobs to execute based on the config
@@ -222,9 +225,12 @@ class TestingDaemon:
         run = ArchiveTest(archive, job)
         while True:
             has_data, data = run.fetch()
-            log.info("Completed {} for {} -> {}, waiting {}".format(tool, source, destination, DEF_INTERVAL))
+            log.info("Completed {} for {} -> {}, waiting {}".format(tool,
+                                                                    source,
+                                                                    destination,
+                                                                    self.interval))
             self._merge_data(self.data[key], data)
-            time.sleep(DEF_INTERVAL)
+            time.sleep(self.interval)
 
 def _read_config(file_path):
     if not file_path:
@@ -242,7 +248,8 @@ def _read_config(file_path):
         result = {'unis_url'   : config['unis_url'],
                   'archive_url': config['archive_url'],
                   'mesh_url'   : config['mesh_url'],
-                  'log_file'   : config['log_file']}
+                  'log_file'   : config['log_file'],
+                  'interval'   : int(config['interval'])}
         
         return result
 
@@ -257,6 +264,7 @@ def main():
     parser.add_argument('-m', '--mesh', default=None, type=str, help="URL of a pS MeshConfig (instead of MA URL)")
     parser.add_argument('-p', '--prometheus', action='store_true', help='Enable Prometheus collector')
     parser.add_argument('-l', '--log', default="logs/esmond_uploader.log", help="Path to log file")
+    parser.add_argument('-i', '--interval', default=None, help="Global polling interval in seconds")
     parser.add_argument('-c', '--config', default=None, type=str, help="Path to configuration file.")
     parser.add_argument('-v', '--verbose', action='store_true', help='Produce verbose output from the app')
     parser.add_argument('-q', '--quiet', action='store_true', help='Quiet mode, no logging output')
@@ -266,10 +274,15 @@ def main():
     conf = {'unis_url': args.unis,
             'archive_url': args.archive,
             'mesh_url': args.mesh,
-            'log_file': args.log}
+            'log_file': args.log,
+            'interval': args.interval}
     conf.update(**_read_config(args.config))
     conf.update(**{k:v for k,v in args.__dict__.items() if v is not None})
 
+    # use a default polling interval if not set
+    if not conf['interval']:
+        conf['interval'] = DEF_INTERVAL
+    
     app = TestingDaemon(conf)
     app.start()
 

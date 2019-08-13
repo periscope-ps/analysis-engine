@@ -1,7 +1,7 @@
 from prometheus_client.core import GaugeMetricFamily, HistogramMetricFamily
 
 
-DEF_INTERVAL=120
+DEF_INTERVAL=600
 DEF_WINDOW=600
 
 MESH_TESTS = [
