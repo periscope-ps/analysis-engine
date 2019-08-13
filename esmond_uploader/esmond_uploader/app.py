@@ -8,9 +8,9 @@ from collections import defaultdict, OrderedDict
 from prometheus_client import start_http_server
 from prometheus_client.core import REGISTRY
 
-from esmond_test import MeshEntry, ArchiveTest
 from unis import Runtime
-from settings import *
+from .esmond_test import MeshEntry, ArchiveTest
+from .settings import *
 
 log = logging.getLogger("app")
 
@@ -263,7 +263,7 @@ def main():
     parser.add_argument('-u', '--unis', type=str, help="The UNIS url to use for saving and tracking testing results.")
     parser.add_argument('-m', '--mesh', default=None, type=str, help="URL of a pS MeshConfig (instead of MA URL)")
     parser.add_argument('-p', '--prometheus', action='store_true', help='Enable Prometheus collector')
-    parser.add_argument('-l', '--log', default="logs/esmond_uploader.log", help="Path to log file")
+    parser.add_argument('-l', '--log', default="/var/log/esmond_uploader.log", help="Path to log file")
     parser.add_argument('-i', '--interval', default=None, help="Global polling interval in seconds")
     parser.add_argument('-c', '--config', default=None, type=str, help="Path to configuration file.")
     parser.add_argument('-v', '--verbose', action='store_true', help='Produce verbose output from the app')

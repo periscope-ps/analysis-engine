@@ -4,11 +4,12 @@ import requests
 import logging
 import time
 from collections import defaultdict
-from esmond_conn import EsmondConnection
+
 from unis import Runtime
 from unis.models import *
-from utils import UnisUtil
-from settings import TOOL_EVENT_TYPES, DEF_WINDOW
+from .esmond_conn import EsmondConnection
+from .utils import UnisUtil
+from .settings import TOOL_EVENT_TYPES, DEF_WINDOW
 '''
     In this file, create different classes that handle different testing data from Esmond and
     push the data into unis.

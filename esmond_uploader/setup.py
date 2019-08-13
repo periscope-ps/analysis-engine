@@ -1,4 +1,4 @@
-from setuptools import setup, Command
+from setuptools import setup, Command, find_packages
 import os
 
 import sys
@@ -17,6 +17,7 @@ setup(
     version="0.1", 
     author="gskipper@iu.edu",
     license="http://www.apache.org/licenses/LICENSE-2.0",
+    packages=find_packages(),
     
     dependency_links=[
         "git+https://github.com/periscope-ps/lace.git/@master#egg=lace",
@@ -32,7 +33,7 @@ setup(
     ],
     entry_points = {
         'console_scripts': [
-            'esmond_uploader = app:main'
+            'esmond_uploader = esmond_uploader.app:main'
 	]
     }
 )
