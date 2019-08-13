@@ -23,4 +23,4 @@ WORKDIR $HOME
 RUN git clone -b v2 https://github.com/periscope-ps/analysis-engine
 RUN cd analysis-engine/esmond_uploader && sudo python3 setup.py install && cd -
 
-CMD esmond_uploader -c /etc/periscope/esmond_uploader.conf
+CMD esmond_uploader -c /etc/periscope/esmond_uploader.conf -p
