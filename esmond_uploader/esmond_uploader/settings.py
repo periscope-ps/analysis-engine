@@ -21,7 +21,8 @@ TOOL_EVENT_TYPES = {
 }
 
 # Prometheus exporter configuration
-PROM_PORT = 8000
+# https://github.com/prometheus/prometheus/wiki/Default-port-allocations
+PROM_PORT = 9632   # PerfSONAR Esmond Exporter
 PROM_CONFIG = {
     "pscheduler/iperf3" : [
         {
