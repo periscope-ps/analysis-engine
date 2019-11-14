@@ -11,6 +11,7 @@ from prometheus_client.core import REGISTRY
 from unis import Runtime
 from .esmond_test import MeshEntry, ArchiveTest
 from .settings import *
+from .utils import UnisUtil
 
 log = logging.getLogger("app")
 
@@ -222,13 +223,20 @@ class TestingDaemon:
         key = job['metadata-key']
         archive = job['archive']
         
+        util = UnisUtil(rt=self.rt)
+        
         run = ArchiveTest(archive, job)
         while True:
             has_data, data = run.fetch()
+            
             log.info("Completed {} for {} -> {}, waiting {}".format(tool,
                                                                     source,
                                                                     destination,
                                                                     self.interval))
+            
+            
+            util.upload_data(data, job, source, destination, archive)
+            
             self._merge_data(self.data[key], data)
             time.sleep(self.interval)
 

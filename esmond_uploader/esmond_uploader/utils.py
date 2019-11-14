@@ -107,10 +107,41 @@ class UnisUtil:
         
         meta.parameters.source = kwargs['src']
         meta.parameters.destination = kwargs['dst']
-        meta.parameters.archive = kwargs['archive'][0]['url']
+        meta.parameters.archive = kwargs['archive'] #[0]['url']
         self.rt.flush()
         print("Returning metadata")         
         return meta.data
+    
+    def upload_data(self, data, job, src_ip, dst_ip, archive):
+        '''
+            Upload the test data to the correct metadata tag.
+            - finds the link resources and their metadata objects
+            - if there is no associated metadata obj for a link, creates one
+            - adds the last test value to each metadata obj
+        '''
+        
+        logging.info("Uploading to UNIS: test data for %s -> %s", src_ip, dst_ip) 
+
+        subject_links = [self.check_create_virtual_link(src_ip, dst_ip)]
+        print("Subjects:", subject_links)
+        
+        for l in subject_links:
+            print("Trying link", l)
+            try: 
+                for i in range(0, len(job['event-types'])):
+                    event_type = job['event-types'][i]['event-type']
+                    event_type_data = data[event_type]
+                    data_values = data[event_type]['base']
+
+                    for j in range(0, len(data_values)):
+                        m = self.check_create_metadata(l, src=src_ip, dst=dst_ip, archive=archive, event=event_type)
+                        print("METADATA.DATA: ", m)
+                        m.append(data["val"], ts=data["ts"])
+                    
+            except Exception as e:
+                print(e)
+                print("Could not add data")
+        return 
 
 
 if __name__ == "__main__":
