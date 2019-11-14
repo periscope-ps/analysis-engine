@@ -107,7 +107,7 @@ class UnisUtil:
         
         meta.parameters.source = kwargs['src']
         meta.parameters.destination = kwargs['dst']
-        meta.parameters.archive = kwargs['archive'] #[0]['url']
+        meta.parameters.archive = kwargs['archive']  #[0]['url']
         self.rt.flush()
         print("Returning metadata")         
         return meta.data
