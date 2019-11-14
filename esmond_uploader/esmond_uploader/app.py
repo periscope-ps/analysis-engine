@@ -234,7 +234,7 @@ class TestingDaemon:
                                                                     destination,
                                                                     self.interval))
             
-            util.upload_data(data, job, source, destination, archive)
+            util.upload_data(data, job, source, destination, archive) 
             
             self._merge_data(self.data[key], data)
             time.sleep(self.interval)
