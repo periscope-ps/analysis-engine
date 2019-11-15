@@ -130,10 +130,10 @@ class UnisUtil:
                 for i in range(0, len(job['event-types'])):
                     event_type = job['event-types'][i]['event-type']
                     data_values = data[event_type]['base']
-
+                    m = self.check_create_metadata(l, src=src_ip, dst=dst_ip, archive=archive, event=event_type)
+                    print("METADATA.DATA: ", m)
+                    
                     for j in range(0, len(data_values)):
-                        m = self.check_create_metadata(l, src=src_ip, dst=dst_ip, archive=archive, event=event_type)
-                        print("METADATA.DATA: ", m)
                         m.append(data_values[j]["val"], ts=data_values[j]["ts"])
                     
             except Exception as e:
