@@ -68,7 +68,6 @@ class UnisUtil:
         try:
             src_node = next(self.rt.nodes.where(lambda n: n.properties.mgmtaddr == src_ip))
             dst_node = next(self.rt.nodes.where(lambda n: n.properties.mgmtaddr == dst_ip))
-        
         except Exception as e:
             print(e)
             print("Could not find nodes. get_links( "  + src_ip + ", " + dst_ip + ")")
@@ -119,7 +118,7 @@ class UnisUtil:
             - if there is no associated metadata obj for a link, creates one
             - adds the last test value to each metadata obj
         '''
-        
+                
         logging.info("Uploading to UNIS: test data for %s -> %s", src_ip, dst_ip) 
 
         subject_links = [self.check_create_virtual_link(src_ip, dst_ip)]
@@ -130,7 +129,6 @@ class UnisUtil:
             try: 
                 for i in range(0, len(job['event-types'])):
                     event_type = job['event-types'][i]['event-type']
-                    event_type_data = data[event_type]
                     data_values = data[event_type]['base']
 
                     for j in range(0, len(data_values)):
