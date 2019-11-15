@@ -136,7 +136,7 @@ class UnisUtil:
                     for j in range(0, len(data_values)):
                         m = self.check_create_metadata(l, src=src_ip, dst=dst_ip, archive=archive, event=event_type)
                         print("METADATA.DATA: ", m)
-                        m.append(data["val"], ts=data["ts"])
+                        m.append(data_values[j]["val"], ts=data_values[j]["ts"])
                     
             except Exception as e:
                 print(e)
