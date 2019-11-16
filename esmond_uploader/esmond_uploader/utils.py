@@ -2,6 +2,8 @@ import logging
 from unis import Runtime
 from unis.models import Metadata, Link
 
+log = logging.getLogger("upload_data")
+
 class UnisUtil:
     def __init__(self, rt=None):
         self.rt = rt
@@ -11,7 +13,6 @@ class UnisUtil:
         self.rt.ports.load()
         self.rt.links.load()
 
-        logging.basicConfig(filename='logs/esmond_uploader.log',level=logging.DEBUG)
     '''
         NOTE: Ideally this function should just return 2 links. But because the nodes in the TechX demo 
         are not adjacent we are returning a 3rd link, which is the switch interconnect between 'adjacent'
@@ -68,23 +69,24 @@ class UnisUtil:
         try:
             src_node = next(self.rt.nodes.where(lambda n: n.properties.mgmtaddr == src_ip))
             dst_node = next(self.rt.nodes.where(lambda n: n.properties.mgmtaddr == dst_ip))
+            print("found nodes - src: ", src_node,", dst:", dst_node)
         except Exception as e:
-            print(e)
             print("Could not find nodes. get_links( "  + src_ip + ", " + dst_ip + ")")
-            return None, None
-         
-        print("found nodes - src: ", src_node,", dst:", dst_node)
-
+            return []
+                  
         link_name = "virtual:" + src_node.name + ":" + dst_node.name
         link = self.rt.links.first_where({"name": link_name})
         
         if link is None:
             print("Creating new virtual link between ", src_node.name, " and ", dst_node.name)
-            link = Link({"name": link_name, "properties":{"type":"virtual"}, "directed": False, "endpoints":[src_node.ports[0], dst_node.ports[0]]})
+            link = Link({"name": link_name,
+                         "properties":{"type":"virtual"},
+                         "directed": False,
+                         "endpoints":[src_node.ports[0], dst_node.ports[0]]})
             self.rt.insert(link, commit=True)
+            return [link]
         
         return link
-
 
     def check_create_metadata(self, subject, **kwargs):
         event_type = kwargs['event']
@@ -98,11 +100,15 @@ class UnisUtil:
         except Exception as e:
             print("IN EXCEPTION")
             print(e)
-            logging.info("Could not find metadata for - %s", subject.selfRef)
+            log.info("Could not find metadata for - %s", subject.selfRef)
             
-            meta = self.rt.insert(Metadata({"eventType": event_type, "subject": subject, "parameters": {"source":"", "destination":"", "archive":""}}), commit=True)
-            print(meta)
-            logging.info("Creating metadata obj - %s ", meta.selfRef)
+            meta = self.rt.insert(Metadata({"eventType": event_type,
+                                            "subject": subject,
+                                            "parameters": {"source":"",
+                                                           "destination":"",
+                                                           "archive":""}}),
+                                  commit=True)
+            log.info("Creating metadata obj - %s ", meta.selfRef)
         
         meta.parameters.source = kwargs['src']
         meta.parameters.destination = kwargs['dst']
@@ -119,26 +125,22 @@ class UnisUtil:
             - adds the last test value to each metadata obj
         '''
                 
-        logging.info("Uploading to UNIS: test data for %s -> %s", src_ip, dst_ip) 
+        log.info("Uploading to UNIS: test data for %s -> %s", src_ip, dst_ip)
 
-        subject_links = [self.check_create_virtual_link(src_ip, dst_ip)]
-        print("Subjects:", subject_links)
-        
+        subject_links = self.check_create_virtual_link(src_ip, dst_ip)
+
         for l in subject_links:
-            print("Trying link", l)
             try: 
                 for i in range(0, len(job['event-types'])):
                     event_type = job['event-types'][i]['event-type']
+                    print (data[event_type])
                     data_values = data[event_type]['base']
                     m = self.check_create_metadata(l, src=src_ip, dst=dst_ip, archive=archive, event=event_type)
-                    print("METADATA.DATA: ", m)
                     
                     for j in range(0, len(data_values)):
                         m.append(data_values[j]["val"], ts=data_values[j]["ts"])
-                    
             except Exception as e:
-                print(e)
-                print("Could not add data")
+                print("Could not add data: {}".format(e))
         return 
 
 
