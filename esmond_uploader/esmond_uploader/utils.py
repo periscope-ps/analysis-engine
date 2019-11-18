@@ -1,8 +1,8 @@
 import logging
 from unis import Runtime
-from unis.models import Metadata, Link
+from unis.models import Metadata, Link, Node, Port
 
-log = logging.getLogger("upload_data")
+log = logging.getLogger("unis_util")
 
 class UnisUtil:
     def __init__(self, rt=None):
@@ -65,24 +65,25 @@ class UnisUtil:
         return [edges[1][2], edges[2][2], edges[3][2]]
 
     def check_create_virtual_link(self, src_ip, dst_ip):
-        print("Checking for virtual link between " + src_ip + " and " + dst_ip)
         try:
-            src_node = next(self.rt.nodes.where(lambda n: n.properties.mgmtaddr == src_ip))
-            dst_node = next(self.rt.nodes.where(lambda n: n.properties.mgmtaddr == dst_ip))
-            print("found nodes - src: ", src_node,", dst:", dst_node)
+            src_port = next(self.rt.ports.where(lambda p: p.address.address == src_ip))
+            dst_port = next(self.rt.ports.where(lambda p: p.address.address == dst_ip))
         except Exception as e:
-            print("Could not find nodes. get_links( "  + src_ip + ", " + dst_ip + ")")
             return []
                   
-        link_name = "virtual:" + src_node.name + ":" + dst_node.name
+        link_name = "virtual:{}:{}".format(src_port.address.address,
+                                           dst_port.address.address)
         link = self.rt.links.first_where({"name": link_name})
         
         if link is None:
-            print("Creating new virtual link between ", src_node.name, " and ", dst_node.name)
+            print("Creating new virtual link between {}:{} and {}:{}".format(src_port.name,
+                                                                             src_port.address.address,
+                                                                             dst_port.name,
+                                                                             dst_port.address.address))
             link = Link({"name": link_name,
                          "properties":{"type":"virtual"},
                          "directed": False,
-                         "endpoints":[src_node.ports[0], dst_node.ports[0]]})
+                         "endpoints":[src_port, dst_port]})
             self.rt.insert(link, commit=True)
             return [link]
         
@@ -98,8 +99,6 @@ class UnisUtil:
             else:
                 raise Exception("Could not find metadata")
         except Exception as e:
-            print("IN EXCEPTION")
-            print(e)
             log.info("Could not find metadata for - %s", subject.selfRef)
             
             meta = self.rt.insert(Metadata({"eventType": event_type,
@@ -117,33 +116,73 @@ class UnisUtil:
         print("Returning metadata")         
         return meta.data
     
-    def upload_data(self, data, job, src_ip, dst_ip, archive):
+    def upload_data(self, data, job, archive):
         '''
             Upload the test data to the correct metadata tag.
             - finds the link resources and their metadata objects
             - if there is no associated metadata obj for a link, creates one
             - adds the last test value to each metadata obj
         '''
-                
-        log.info("Uploading to UNIS: test data for %s -> %s", src_ip, dst_ip)
+        agent = job['measurement-agent']
+        src_node = job['input-source']
+        dst_node = job['input-destination']
+        src_ip = job['source']
+        dst_ip = job['destination']
+        
+        log.info("Uploading to UNIS: test data for %s -> %s", src_node, dst_node)
 
         subject_links = self.check_create_virtual_link(src_ip, dst_ip)
 
         for l in subject_links:
             try: 
                 for i in range(0, len(job['event-types'])):
-                    event_type = job['event-types'][i]['event-type']
-                    print (data[event_type])
-                    data_values = data[event_type]['base']
-                    m = self.check_create_metadata(l, src=src_ip, dst=dst_ip, archive=archive, event=event_type)
-                    
-                    for j in range(0, len(data_values)):
-                        m.append(data_values[j]["val"], ts=data_values[j]["ts"])
+                  event_type = job['event-types'][i]['event-type']
+                  print (data[event_type])
+                  data_values = data[event_type]['base']
+                  m = self.check_create_metadata(l, src=src_node, dst=dst_node,
+                                                 archive=archive, event=event_type)
+                for j in range(0, len(data_values)):
+                  m.append(data_values[j]["val"], ts=data_values[j]["ts"])
             except Exception as e:
                 print("Could not add data: {}".format(e))
-        return 
+        return
 
+    def jobs_to_nodes(self, jobs):
+        for j in jobs:
+            agent = j['measurement-agent']
+            src_node = j['input-source']
+            dst_node = j['input-destination']
+            src_ip = j['source']
+            dst_ip = j['destination']
 
+            try:
+                snode = next(self.rt.nodes.where(lambda n: n.name == src_node))
+            except:
+                p = Port()
+                p.name = "eth0"
+                p.address.type = "ipv4"
+                p.address.address = src_ip
+                n = Node()
+                n.name = src_node
+                n.ports.append(p)
+                self.rt.insert(p, commit=True)
+                self.rt.insert(n, commit=True)
+
+            try:
+                dnode = next(self.rt.nodes.where(lambda n: n.name == dst_node))
+            except:
+                p = Port()
+                p.name = "eth0"
+                p.address.type = "ipv4"
+                p.address.address = dst_ip
+                n = Node()
+                n.name = dst_node
+                n.ports.append(p)
+                self.rt.insert(p, commit=True)
+                self.rt.insert(n, commit=True)
+
+        self.rt.flush()
+    
 if __name__ == "__main__":
     util = UnisUtil(rt=Runtime("http://iu-ps01.osris.org:8888"))
     links = util.check_create_virtual_link("192.168.10.202", "192.168.10.204")

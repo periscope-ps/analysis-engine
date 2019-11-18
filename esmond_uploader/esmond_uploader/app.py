@@ -30,6 +30,7 @@ class TestingDaemon:
         self.threads	    = []
         self.metadata       = None
         self.data           = defaultdict(dict)
+        self.util           = None
         
         # Setup logging
         form  = '[%(asctime)s] [%(threadName)s] %(levelname)s: %(msg)s'
@@ -178,6 +179,7 @@ class TestingDaemon:
         try:
             self.rt = Runtime(self.unis)
             self.rt.addService("unis.services.data.DataService")
+            self.util = UnisUtil(rt=self.rt)
         except Exception as e:
             log.error("Could not connect to UNIS!")
             sys.exit(1)
@@ -194,7 +196,11 @@ class TestingDaemon:
             self._setup_archive()
         else:
             self._setup_mesh()
-    
+
+        # a this point we should have a list of jobs
+        # we can create/update resources in UNIS
+        self.util.jobs_to_nodes(self.jobs)
+        
     def start(self):
         log.info("Config - \n\
 	  Archive Host: {}\n\
@@ -223,8 +229,6 @@ class TestingDaemon:
         key = job['metadata-key']
         archive = job['archive']
         
-        util = UnisUtil(rt=self.rt)
-        
         run = ArchiveTest(archive, job)
         while True:
             has_data, data = run.fetch()
@@ -235,7 +239,7 @@ class TestingDaemon:
                                                                     self.interval))
 
             if has_data:
-                util.upload_data(data, job, source, destination, archive)
+                self.util.upload_data(data, job, archive)
             
             self._merge_data(self.data[key], data)
             time.sleep(self.interval)
