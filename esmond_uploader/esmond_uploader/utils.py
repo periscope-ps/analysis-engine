@@ -70,7 +70,7 @@ class UnisUtil:
             dst_port = next(self.rt.ports.where(lambda p: p.address.address == dst_ip))
         except Exception as e:
             return []
-                  
+
         link_name = "virtual:{}:{}".format(src_port.address.address,
                                            dst_port.address.address)
         link = self.rt.links.first_where({"name": link_name})
@@ -86,16 +86,17 @@ class UnisUtil:
                          "endpoints":[src_port, dst_port]})
             self.rt.insert(link, commit=True)
             return [link]
-        
-        return link
+
+        return [link]
 
     def check_create_metadata(self, subject, **kwargs):
         event_type = kwargs['event']
         print("looking for event type", event_type, "for subject :", subject.selfRef)
         try:
             meta = next(self.rt.metadata.where({"subject": subject, "eventType": event_type}))
+            print(meta.to_JSON())
             if meta.parameters.source == kwargs['src'] and meta.parameters.destination == kwargs['dst']: 
-                print("FOUND METADATA", meta.selfRef)            
+                print("FOUND METADATA", meta.selfRef)
             else:
                 raise Exception("Could not find metadata")
         except Exception as e:
@@ -108,12 +109,12 @@ class UnisUtil:
                                                            "archive":""}}),
                                   commit=True)
             log.info("Creating metadata obj - %s ", meta.selfRef)
-        
+
         meta.parameters.source = kwargs['src']
         meta.parameters.destination = kwargs['dst']
         meta.parameters.archive = kwargs['archive']  #[0]['url']
         self.rt.flush()
-        print("Returning metadata")         
+        print("Returning metadata")
         return meta.data
     
     def upload_data(self, data, job, archive):
@@ -128,7 +129,7 @@ class UnisUtil:
         dst_node = job['input-destination']
         src_ip = job['source']
         dst_ip = job['destination']
-        
+
         log.info("Uploading to UNIS: test data for %s -> %s", src_node, dst_node)
 
         subject_links = self.check_create_virtual_link(src_ip, dst_ip)

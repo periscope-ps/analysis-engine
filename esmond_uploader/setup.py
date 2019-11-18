@@ -24,6 +24,7 @@ setup(
         "git+https://github.com/periscope-ps/unisrt.git/@develop#egg=unisrt",
     ],
     install_requires=[
+        "docutils",
         "websockets==4.0.1",
         "lace",
         "unisrt",
