@@ -1,8 +1,8 @@
-import logging
+import logging, sys, threading
 from unis import Runtime
 from unis.models import Metadata, Link, Node, Port
 
-log = logging.getLogger("unis_util")
+log = logging.getLogger("esmond_up.utils")
 
 class UnisUtil:
     def __init__(self, rt=None):
@@ -12,6 +12,7 @@ class UnisUtil:
         self.rt.nodes.load()
         self.rt.ports.load()
         self.rt.links.load()
+        self.rt.metadata.load()
 
     '''
         NOTE: Ideally this function should just return 2 links. But because the nodes in the TechX demo 
@@ -91,30 +92,21 @@ class UnisUtil:
 
     def check_create_metadata(self, subject, **kwargs):
         event_type = kwargs['event']
-        print("looking for event type", event_type, "for subject :", subject.selfRef)
+        log.debug("looking for event type {} for subject: {}".format(event_type,subject.selfRef))
         try:
-            meta = next(self.rt.metadata.where({"subject": subject, "eventType": event_type}))
-            print(meta.to_JSON())
-            if meta.parameters.source == kwargs['src'] and meta.parameters.destination == kwargs['dst']: 
-                print("FOUND METADATA", meta.selfRef)
-            else:
-                raise Exception("Could not find metadata")
-        except Exception as e:
-            log.info("Could not find metadata for - %s", subject.selfRef)
-            
-            meta = self.rt.insert(Metadata({"eventType": event_type,
-                                            "subject": subject,
-                                            "parameters": {"source":"",
-                                                           "destination":"",
-                                                           "archive":""}}),
+            meta = next(self.rt.metadata.where(lambda x: x.subject == subject and x.eventType == event_type and
+                                               x.parameters.source == kwargs['src'] and
+                                               x.parameters.destination == kwargs['dst']))
+            log.debug("FOUND METADATA {}".format(meta.selfRef))
+        except (StopIteration, AttributeError, Exception):
+            meta = self.rt.insert(Metadata({'eventType': event_type,
+                                            'subject': subject,
+                                            'parameters': {'source': kwargs['src'],
+                                                           'destination': kwargs['dst'],
+                                                           'archive': kwargs['archive']}}),
                                   commit=True)
-            log.info("Creating metadata obj - %s ", meta.selfRef)
-
-        meta.parameters.source = kwargs['src']
-        meta.parameters.destination = kwargs['dst']
-        meta.parameters.archive = kwargs['archive']  #[0]['url']
+            log.debug("Creating metadata obj - {} ".format(meta.selfRef))
         self.rt.flush()
-        print("Returning metadata")
         return meta.data
     
     def upload_data(self, data, job, archive):
@@ -130,23 +122,21 @@ class UnisUtil:
         src_ip = job['source']
         dst_ip = job['destination']
 
-        log.info("Uploading to UNIS: test data for %s -> %s", src_node, dst_node)
+        log.info("Uploading to UNIS: test data for {} -> {}".format(src_node, dst_node))
 
         subject_links = self.check_create_virtual_link(src_ip, dst_ip)
 
         for l in subject_links:
-            try: 
-                for i in range(0, len(job['event-types'])):
-                  event_type = job['event-types'][i]['event-type']
-                  print (data[event_type])
-                  data_values = data[event_type]['base']
-                  m = self.check_create_metadata(l, src=src_node, dst=dst_node,
-                                                 archive=archive, event=event_type)
-                for j in range(0, len(data_values)):
-                  m.append(data_values[j]["val"], ts=data_values[j]["ts"])
-            except Exception as e:
-                print("Could not add data: {}".format(e))
-        return
+            for i in range(0, len(job['event-types'])):
+                try:
+                    event_type = job['event-types'][i]['event-type']
+                    data_values = data[event_type]['base']
+                    m = self.check_create_metadata(l, src=src_node, dst=dst_node,
+                                                   archive=archive, event=event_type)
+                    for j in range(len(data_values)):
+                        m.append(data_values[j]["val"], ts=data_values[j]["ts"])
+                except Exception as e:
+                    print("Could not add data: {}".format(e))
 
     def jobs_to_nodes(self, jobs):
         for j in jobs:

@@ -13,7 +13,7 @@ from .esmond_test import MeshEntry, ArchiveTest
 from .settings import *
 from .utils import UnisUtil
 
-log = logging.getLogger("app")
+log = logging.getLogger("esmond_up")
 
 class TestingDaemon:
     def __init__(self, conf):
