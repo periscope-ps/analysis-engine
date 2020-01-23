@@ -38,16 +38,18 @@ class Grapher(object):
     _prohibit_ops = ['add_node', 'add_nodes_from', 'remove_node', 'remove_nodes_from',
                      'add_edge', 'add_edges_from', 'add_weighted_edges_from', 'remove_edge',
                      'remove_edges_from', 'add_star', 'add_path', 'add_cycle', 'clear']
-    def _prohibit(self, *args, **kwargs):
-        raise OperationProhibited("Direct node/edge add/remove not allowed, use Grapher.[add/remove]_[node/edge]")
-
+    def _prohibit(self, n):
+        def _f(self, *args, **kwargs):
+            raise OperationProhibited("Direct node/edge add/remove not allowed, use Grapher." + n)
+        return _f
+    
     def __init__(self, rt, live=True):
         self._attrs, self._live, self._rt = [], live, rt
         self._nodemap = {}
         self._port_ref = collections.defaultdict(lambda: [None, None])
         self._g = MultiDiGraph()
         for p in filter(lambda x: x in self._prohibit_ops, dir(self._g)):
-            setattr(self._g, p, self._prohibit)
+            setattr(self._g, p, self._prohibit(p))
 
         self._lock = threading.RLock()
         if live:
