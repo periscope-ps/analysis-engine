@@ -22,13 +22,16 @@ node0 = builder.add_node('node0')
 node1 = builder.add_node('node1')
 node2 = builder.add_node('node2')
 
-
 # Add edge
 # Matches networkx .add_edge signature
 #https://networkx.github.io/documentation/stable/reference/classes/multidigraph.html
 builder.add_edge(node0, node1)
 builder.add_edge(node1, node2)
 builder.add_edge(node0, node2)
+
+# If nodes already exist in UNIS
+#node0 = rt.nodes.first_where({'name': 'node0'})
+#node2 = rt.nodes.first_where({'name': 'node2'})
 
 # Read/apply-function-to graph
 with builder.graph() as G:
