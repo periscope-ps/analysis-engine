@@ -276,7 +276,7 @@ def main():
     parser.add_argument('-m', '--mesh', default=None, type=str, help="URL of a pS MeshConfig (instead of MA URL)")
     parser.add_argument('-p', '--prometheus', action='store_true', help='Enable Prometheus collector')
     parser.add_argument('-l', '--log', default="/var/log/esmond_uploader.log", help="Path to log file")
-    parser.add_argument('-i', '--interval', default=None, help="Global polling interval in seconds")
+    parser.add_argument('-i', '--interval', default=None, type=int, help="Global polling interval in seconds")
     parser.add_argument('-c', '--config', default=None, type=str, help="Path to configuration file.")
     parser.add_argument('-v', '--verbose', action='store_true', help='Produce verbose output from the app')
     parser.add_argument('-q', '--quiet', action='store_true', help='Quiet mode, no logging output')
