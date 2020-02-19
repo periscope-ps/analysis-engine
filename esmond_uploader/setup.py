@@ -25,7 +25,7 @@ setup(
     ],
     install_requires=[
         "docutils",
-        "websockets==4.0.1",
+        "websockets",
         "lace",
         "unisrt",
         "requests",
